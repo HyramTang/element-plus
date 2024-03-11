@@ -1,5 +1,6 @@
 import { ensureLang } from '../utils/lang'
 import navLocale from '../i18n/pages/sidebar.json'
+import { joinPath } from './path'
 
 // Mapping the first sub link to the nav link to avoid 404 error.
 
@@ -12,7 +13,7 @@ function getNav() {
         activeMatch?: string
       }[] = Object.values(locales).map((item) => ({
         ...item,
-        link: `${ensureLang(lang)}${item.link}`,
+        link: joinPath(`${ensureLang(lang)}${item.link}`),
       }))
 
       return [lang, item]

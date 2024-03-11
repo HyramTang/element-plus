@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { inBrowser, useData } from 'vitepress'
+import { inBrowser, useData, withBase } from 'vitepress'
 
 import VPNavbarSearch from './navbar/vp-search.vue'
 import VPNavbarMenu from './navbar/vp-menu.vue'
@@ -18,14 +18,26 @@ defineEmits(['toggle'])
 const { theme, page } = useData()
 
 const currentLink = computed(() => {
+  console.log('inBrowser', inBrowser)
   if (!inBrowser) {
-    return `/${page.value?.frontmatter?.lang || ''}/`
+    console.log('page.value?.frontmatter?.lang', page.value?.frontmatter?.lang)
+    return withBase(`/${page.value?.frontmatter?.lang || ''}/`)
   }
+  console.log('theme.value.langs', theme.value.langs)
+  console.log('window?.location?.pathname', window?.location?.pathname)
   const existLangIndex = theme.value.langs.findIndex((lang) =>
-    window?.location?.pathname.startsWith(`/${lang}`)
+    window?.location?.pathname.startsWith(withBase(`/${lang}`))
   )
 
-  return existLangIndex === -1 ? '/' : `/${theme.value.langs[existLangIndex]}/`
+  console.log('existLangIndex', existLangIndex)
+  const link =
+    existLangIndex === -1 ? '/' : `/${theme.value.langs[existLangIndex]}/`
+
+  console.log('link', link)
+  const withBaseLink = withBase(link)
+
+  console.log('withBaseLink', withBaseLink)
+  return withBaseLink
 })
 </script>
 

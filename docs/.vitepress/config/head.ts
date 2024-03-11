@@ -74,20 +74,20 @@ export const head: HeadConfig[] = [
       src: 'https://www.googletagmanager.com/gtag/js?id=UA-175337989-1',
     },
   ],
-  [
-    'script',
-    {},
-    `if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then(function(registration) {
-          console.log(registration);
-        })
-        .catch(function(err) {
-          console.log(err);
-        });
-    }`,
-  ],
+  // [
+  //   'script',
+  //   {},
+  //   `if ('serviceWorker' in navigator) {
+  //     navigator.serviceWorker
+  //       .register('/sw.js')
+  //       .then(function(registration) {
+  //         console.log(registration);
+  //       })
+  //       .catch(function(err) {
+  //         console.log(err);
+  //       });
+  //   }`,
+  // ],
   [
     'script',
     {
