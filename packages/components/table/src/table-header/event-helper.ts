@@ -99,6 +99,7 @@ function useEvent<T extends DefaultRow>(
             column,
             event
           )
+          table?.persistColumnWidth?.(column, columnWidth)
           requestAnimationFrame(() => {
             props.store.scheduleLayout(false, true)
           })

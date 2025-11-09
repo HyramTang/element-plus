@@ -80,6 +80,7 @@ interface Table<T extends DefaultRow = any> extends ComponentInternalInstance {
   refs: TableRefs
   tableId: string
   state: TableState
+  persistColumnWidth?: (column: TableColumnCtx<T>, width: number) => void
 }
 
 type ColumnCls<T> = string | ((data: { row: T; rowIndex: number }) => string)
@@ -105,6 +106,7 @@ type CellStyle<T extends DefaultRow> =
 type Layout = 'fixed' | 'auto'
 interface TableProps<T extends DefaultRow> {
   data: T[]
+  id?: string
   size?: ComponentSize
   width?: string | number
   height?: string | number
@@ -161,6 +163,7 @@ interface TableProps<T extends DefaultRow> {
   appendFilterPanelTo?: string
   scrollbarTabindex?: number | string
   nativeScrollbar?: boolean
+  saveColumnWidth?: boolean
 }
 
 type TableTooltipData<T extends DefaultRow> = Parameters<
@@ -209,6 +212,10 @@ export default {
     type: Array as PropType<any[]>,
     default: () => [],
   },
+  /**
+   * @description native id attribute applied to the table root
+   */
+  id: String,
   /**
    * @description size of Table
    */
@@ -429,6 +436,13 @@ export default {
    * @description whether to use native scrollbars
    */
   nativeScrollbar: Boolean,
+  /**
+   * @description automatically persist user resized column widths
+   */
+  saveColumnWidth: {
+    type: Boolean,
+    default: true,
+  },
 }
 export type {
   SummaryMethod,

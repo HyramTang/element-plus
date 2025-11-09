@@ -1,5 +1,6 @@
 <template>
   <div
+    :id="id"
     ref="tableWrapper"
     :class="[
       {
@@ -188,7 +189,10 @@ import TableHeader from './table-header'
 import TableBody from './table-body'
 import TableFooter from './table-footer'
 import useUtils from './table/utils-helper'
-import { convertToRows } from './table-header/utils-helper'
+import {
+  convertToRows,
+  useColumnWidthPersistence,
+} from './table-header/utils-helper'
 import useStyle from './table/style-helper'
 import useKeyRender from './table/key-render-helper'
 import defaultProps from './table/defaults'
@@ -311,8 +315,15 @@ export default defineComponent({
     })
 
     useKeyRender(table)
+    // 基于视图与 table id 持久化列宽，刷新后仍可保留用户调整
+    const disposeColumnWidthPersistence = useColumnWidthPersistence(
+      table,
+      props,
+      store
+    )
 
     onBeforeUnmount(() => {
+      disposeColumnWidthPersistence()
       debouncedUpdateLayout.cancel()
     })
 
@@ -388,6 +399,7 @@ export default defineComponent({
       scrollbarViewStyle,
       scrollbarStyle,
       scrollBarRef,
+      id: props.id,
       /**
        * @description scrolls to a particular set of coordinates
        */
