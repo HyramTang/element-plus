@@ -236,7 +236,10 @@ export default {
   /**
    * @description whether Table has vertical border
    */
-  border: Boolean,
+  border: {
+    type: Boolean,
+    default: true,
+  },
   /**
    * @description key of row data, used for optimizing rendering. Required if `reserve-selection` is on or display tree data. When its type is String, multi-level access is supported, e.g. `user.info.id`, but `user.info[0].id` is not supported, in which case `Function` should be used
    */
