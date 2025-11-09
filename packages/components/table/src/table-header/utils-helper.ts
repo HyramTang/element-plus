@@ -97,6 +97,85 @@ function useUtils<T extends DefaultRow>(props: TableHeaderProps<T>) {
 export default useUtils
 
 const COLUMN_WIDTH_STORAGE_PREFIX = 'tableView:'
+const STORAGE_VERSION = 1
+
+interface ColumnPersistencePayload {
+  v: number
+  updatedAt: number
+  tableId: string
+  colWidth: Record<string, number>
+  colOrder?: string[]
+  colVisible?: Record<string, boolean>
+  meta?: Record<string, unknown>
+}
+
+const createEmptyPayload = (tableId: string): ColumnPersistencePayload => ({
+  v: STORAGE_VERSION,
+  updatedAt: Date.now(),
+  tableId,
+  colWidth: {},
+  meta: {
+    creator: 'el-table',
+  },
+})
+
+const normalizeWidthMap = (value: Record<string, any> | undefined) => {
+  if (!value || typeof value !== 'object') return {}
+  return Object.entries(value).reduce<Record<string, number>>(
+    (acc, [key, width]) => {
+      const numericWidth = Number(width)
+      if (!Number.isNaN(numericWidth)) {
+        acc[key] = numericWidth
+      }
+      return acc
+    },
+    {}
+  )
+}
+
+const normalizeVisibilityMap = (value: Record<string, any> | undefined) => {
+  if (!value || typeof value !== 'object') return undefined
+  const normalized = Object.entries(value).reduce<Record<string, boolean>>(
+    (acc, [key, visible]) => {
+      if (typeof visible === 'boolean') {
+        acc[key] = visible
+      }
+      return acc
+    },
+    {}
+  )
+  return Object.keys(normalized).length ? normalized : undefined
+}
+
+const normalizeMetaInfo = (value: unknown) => {
+  if (!value || typeof value !== 'object') return undefined
+  return { ...(value as Record<string, unknown>) }
+}
+
+const normalizePayload = (
+  value: Record<string, any>,
+  fallbackId: string
+): ColumnPersistencePayload => {
+  const colWidth = normalizeWidthMap(value.colWidth)
+  const colOrder = Array.isArray(value.colOrder)
+    ? value.colOrder.filter((item): item is string => typeof item === 'string')
+    : undefined
+  const colVisible = normalizeVisibilityMap(value.colVisible)
+  const meta = normalizeMetaInfo(value.meta)
+  return {
+    v: typeof value.v === 'number' ? value.v : STORAGE_VERSION,
+    updatedAt:
+      typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
+    tableId:
+      typeof value.tableId === 'string' && value.tableId
+        ? value.tableId
+        : fallbackId,
+    colWidth,
+    colOrder,
+    colVisible,
+    meta,
+  }
+}
 
 /**
  * @description 获取当前路由路径，优先读取 vue-router，其次使用浏览器 pathname
@@ -127,6 +206,7 @@ export const useColumnWidthPersistence = <T extends DefaultRow>(
   props: TableProps<T>,
   store: Store<T>
 ) => {
+  const cachedPayload = shallowRef<ColumnPersistencePayload | null>(null)
   const cachedWidths = shallowRef<Record<string, number>>({})
 
   const isPersistenceEnabled = computed(
@@ -142,45 +222,43 @@ export const useColumnWidthPersistence = <T extends DefaultRow>(
   })
 
   /**
-   * @description 从 localStorage 读取列宽映射
+   * @description 读取存储中的完整列配置
    */
-  const readWidthsFromStorage = (key: string) => {
-    if (!key || !isClient) return {}
+  const readPayloadFromStorage = (key: string, tableId: string) => {
+    if (!key || !isClient) return createEmptyPayload(tableId)
     try {
       const raw = window.localStorage.getItem(key)
-      if (!raw) return {}
+      if (!raw) return createEmptyPayload(tableId)
       const parsed = JSON.parse(raw)
       if (parsed && typeof parsed === 'object') {
-        return Object.entries(parsed).reduce(
-          (acc, [columnKey, width]) => {
-            const numericWidth = Number(width)
-            if (!Number.isNaN(numericWidth)) {
-              acc[columnKey] = numericWidth
-            }
-            return acc
-          },
-          {} as Record<string, number>
-        )
+        return normalizePayload(parsed, tableId)
       }
+      return createEmptyPayload(tableId)
     } catch {
-      return {}
+      return createEmptyPayload(tableId)
     }
-    return {}
   }
 
   /**
-   * @description 将当前列宽映射持久化到 localStorage
+   * @description 将完整列配置写入存储
    */
-  const persistWidthsToStorage = (
+  const persistPayloadToStorage = (
     key: string,
-    widths: Record<string, number>
+    payload: ColumnPersistencePayload
   ) => {
     if (!key || !isClient) return
     try {
-      window.localStorage.setItem(key, JSON.stringify(widths))
+      window.localStorage.setItem(key, JSON.stringify(payload))
     } catch {
       // 忽略存储空间配额异常
     }
+  }
+
+  const ensurePayload = () => {
+    if (cachedPayload.value) return cachedPayload.value
+    const payload = createEmptyPayload(props.id as string)
+    cachedPayload.value = payload
+    return payload
   }
 
   /**
@@ -217,12 +295,22 @@ export const useColumnWidthPersistence = <T extends DefaultRow>(
     const identifier = resolveColumnIdentifier(column)
     const numericWidth = Number(width)
     if (!identifier || Number.isNaN(numericWidth)) return
-    const next = {
-      ...cachedWidths.value,
+    const payload = ensurePayload()
+    const previousWidth = payload.colWidth[identifier]
+    if (previousWidth === numericWidth) return
+    payload.colWidth = {
+      ...payload.colWidth,
       [identifier]: numericWidth,
     }
-    cachedWidths.value = next
-    persistWidthsToStorage(resolvedStorageKey.value, next)
+    payload.updatedAt = Date.now()
+    payload.v = STORAGE_VERSION
+    payload.tableId = props.id as string
+    if (!payload.meta) {
+      payload.meta = { creator: 'el-table' }
+    }
+    cachedPayload.value = payload
+    cachedWidths.value = { ...payload.colWidth }
+    persistPayloadToStorage(resolvedStorageKey.value, payload)
   }
 
   // 当路由或 table id 变化时重新读取缓存
@@ -230,11 +318,14 @@ export const useColumnWidthPersistence = <T extends DefaultRow>(
     resolvedStorageKey,
     (key) => {
       if (!key) {
+        cachedPayload.value = null
         cachedWidths.value = {}
         table.persistColumnWidth = undefined
         return
       }
-      cachedWidths.value = readWidthsFromStorage(key)
+      const payload = readPayloadFromStorage(key, props.id as string)
+      cachedPayload.value = payload
+      cachedWidths.value = { ...payload.colWidth }
       table.persistColumnWidth = persistColumnWidth
       applyPersistedWidths()
     },
