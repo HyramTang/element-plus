@@ -46,7 +46,7 @@ export const useColumnDrag = <T extends DefaultRow>(
     destroySortable()
     sortableRef.value = Sortable.create(rowEl as HTMLElement, {
       animation: 150,
-      handle: '.cell',
+      handle: '[data-column-handle="true"]',
       draggable: 'th[data-column-draggable="true"]',
       ghostClass: 'is-dragging',
       chosenClass: 'is-chosen',

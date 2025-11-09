@@ -227,11 +227,29 @@ export default defineComponent({
             const columnId = resolveColumnIdentifier(column)
             const tableDragEnabled =
               tableInstance?.props?.enableColumnDrag !== false
+            const hasFixedColumns =
+              tableInstance?.store?.states?.isComplex.value ?? false
             const columnDragEnabled =
-              tableDragEnabled && column.enableColumnDrag !== false
+              tableDragEnabled &&
+              !isGroup &&
+              !hasFixedColumns &&
+              !column.fixed &&
+              column.enableColumnDrag !== false &&
+              column.type === 'default'
             if (isTableLayoutAuto && column.fixed) {
               saveIndexSelection.set(_class, column)
             }
+            const dragHandle =
+              columnDragEnabled &&
+              h(
+                'span',
+                {
+                  class: ns.e('column-drag-handle'),
+                  'aria-hidden': 'true',
+                  'data-column-handle': 'true',
+                },
+                '⋮⋮'
+              )
             return h(
               'th',
               {
@@ -327,6 +345,7 @@ export default defineComponent({
                               : null,
                         }
                       ),
+                    dragHandle,
                   ]
                 ),
               ]

@@ -186,11 +186,33 @@
     white-space: normal;
     overflow-wrap: break-word;
     line-height: 23px;
-    padding: 0 12px;
+    padding: 0 20px 0 12px;
+    position: relative;
 
     &.#{$namespace}-tooltip {
       white-space: nowrap;
       min-width: 50px;
+    }
+
+    .#{$namespace}-table__column-drag-handle {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: getCssVar('text-color', 'disabled');
+      cursor: grab;
+      user-select: none;
+      opacity: 0;
+      transition:
+        color getCssVar('transition-duration-fast') ease,
+        opacity getCssVar('transition-duration-fast') ease;
+      line-height: 1;
+    }
+
+    &:hover .#{$namespace}-table__column-drag-handle {
+      opacity: 1;
+      color: getCssVar('text-color', 'regular');
     }
   }
 
