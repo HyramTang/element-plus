@@ -191,7 +191,7 @@ import TableFooter from './table-footer'
 import useUtils from './table/utils-helper'
 import {
   convertToRows,
-  useColumnWidthPersistence,
+  useColumnPersistence,
 } from './table-header/utils-helper'
 import useStyle from './table/style-helper'
 import useKeyRender from './table/key-render-helper'
@@ -315,15 +315,11 @@ export default defineComponent({
     })
 
     useKeyRender(table)
-    // 基于视图与 table id 持久化列宽，刷新后仍可保留用户调整
-    const disposeColumnWidthPersistence = useColumnWidthPersistence(
-      table,
-      props,
-      store
-    )
+    // 基于视图与 table id 持久化列配置（列宽/顺序等）
+    const disposeColumnPersistence = useColumnPersistence(table, props, store)
 
     onBeforeUnmount(() => {
-      disposeColumnWidthPersistence()
+      disposeColumnPersistence()
       debouncedUpdateLayout.cancel()
     })
 

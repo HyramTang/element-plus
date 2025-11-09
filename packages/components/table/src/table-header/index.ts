@@ -17,11 +17,12 @@ import useLayoutObserver from '../layout-observer'
 import { TABLE_INJECTION_KEY } from '../tokens'
 import useEvent from './event-helper'
 import useStyle from './style.helper'
-import useUtils from './utils-helper'
+import useUtils, { resolveColumnIdentifier } from './utils-helper'
+import { useColumnDrag } from './column-drag'
 
 import type TableLayout from '../table-layout'
 import type { ComponentInternalInstance, PropType, Ref } from 'vue'
-import type { DefaultRow, Sort } from '../table/defaults'
+import type { DefaultRow, Sort, Table } from '../table/defaults'
 import type { Store } from '../store'
 
 export interface TableHeader extends ComponentInternalInstance {
@@ -136,6 +137,15 @@ export default defineComponent({
       props as TableHeaderProps<any>
     )
 
+    if (parent) {
+      useColumnDrag({
+        headerRef: theadRef,
+        store: props.store as Store<any>,
+        table: parent as Table<any>,
+        isGroup,
+      })
+    }
+
     instance.state = {
       onColumnsChange,
       onScrollableChange,
@@ -222,6 +232,7 @@ export default defineComponent({
                 colspan: column.colSpan,
                 key: `${column.id}-thead`,
                 rowspan: column.rowSpan,
+                'data-column-id': resolveColumnIdentifier(column),
                 style: getHeaderCellStyle(
                   rowIndex,
                   cellIndex,

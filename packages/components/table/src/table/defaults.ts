@@ -81,6 +81,7 @@ interface Table<T extends DefaultRow = any> extends ComponentInternalInstance {
   tableId: string
   state: TableState
   persistColumnWidth?: (column: TableColumnCtx<T>, width: number) => void
+  persistColumnOrder?: (columnKeys: string[]) => void
 }
 
 type ColumnCls<T> = string | ((data: { row: T; rowIndex: number }) => string)
