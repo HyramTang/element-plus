@@ -1,6 +1,21 @@
 <template>
   <el-table :data="filterTableData" style="width: 100%">
-    <el-table-column label="Date" prop="date" />
+    <el-table-column label="Date" prop="date" sortable>
+      <template #header>
+        Date
+        <el-popover
+          placement="bottom"
+          title="Title"
+          :width="200"
+          trigger="click"
+          content="this is content, this is content, this is content"
+        >
+          <template #reference>
+            <el-button class="m-2" @click.stop="">Click to activate</el-button>
+          </template>
+        </el-popover>
+      </template>
+    </el-table-column>
     <el-table-column label="Name" prop="name" />
     <el-table-column align="right">
       <template #header>
