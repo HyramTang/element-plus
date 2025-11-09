@@ -81,7 +81,7 @@ interface Table<T extends DefaultRow = any> extends ComponentInternalInstance {
   tableId: string
   state: TableState
   persistColumnWidth?: (column: TableColumnCtx<T>, width: number) => void
-  persistColumnOrder?: (columnKeys: string[]) => boolean
+  persistColumnOrder?: (columnKeys: string[], zone?: ColumnDragZone) => boolean
 }
 
 type ColumnCls<T> = string | ((data: { row: T; rowIndex: number }) => string)
@@ -206,6 +206,8 @@ interface RenderRowData<T extends DefaultRow> {
   treeNode?: TreeNode
   expanded: boolean
 }
+
+export type ColumnDragZone = 'left' | 'center' | 'right'
 
 export default {
   /**

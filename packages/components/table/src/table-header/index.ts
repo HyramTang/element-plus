@@ -17,7 +17,10 @@ import useLayoutObserver from '../layout-observer'
 import { TABLE_INJECTION_KEY } from '../tokens'
 import useEvent from './event-helper'
 import useStyle from './style.helper'
-import useUtils, { resolveColumnIdentifier } from './utils-helper'
+import useUtils, {
+  resolveColumnIdentifier,
+  resolveColumnZone,
+} from './utils-helper'
 import { useColumnDrag } from './column-drag'
 
 import type TableLayout from '../table-layout'
@@ -225,15 +228,12 @@ export default defineComponent({
               column
             )
             const columnId = resolveColumnIdentifier(column)
+            const columnZone = resolveColumnZone(column)
             const tableDragEnabled =
               tableInstance?.props?.enableColumnDrag !== false
-            const hasFixedColumns =
-              tableInstance?.store?.states?.isComplex.value ?? false
             const columnDragEnabled =
               tableDragEnabled &&
               !isGroup &&
-              !hasFixedColumns &&
-              !column.fixed &&
               column.enableColumnDrag !== false &&
               column.type === 'default'
             if (isTableLayoutAuto && column.fixed) {
@@ -259,6 +259,7 @@ export default defineComponent({
                 rowspan: column.rowSpan,
                 'data-column-id': columnId,
                 'data-column-draggable': columnDragEnabled ? 'true' : 'false',
+                'data-column-zone': columnZone,
                 style: getHeaderCellStyle(
                   rowIndex,
                   cellIndex,

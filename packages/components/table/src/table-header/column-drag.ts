@@ -4,7 +4,7 @@ import { isClient } from '@element-plus/utils'
 import { reorderColumnsByKeys, resolveColumnIdentifier } from './utils-helper'
 
 import type { Ref } from 'vue'
-import type { DefaultRow, Table } from '../table/defaults'
+import type { ColumnDragZone, DefaultRow, Table } from '../table/defaults'
 import type { Store } from '../store'
 
 interface UseColumnDragOptions<T extends DefaultRow> {
@@ -35,7 +35,6 @@ export const useColumnDrag = <T extends DefaultRow>(
     if (!isClient) return
     if (!tableDragEnabled.value) return
     if (options.isGroup.value) return
-    if (options.store.states.isComplex.value) return
     await nextTick()
     const headerEl = options.headerRef.value
     if (!headerEl) return
@@ -50,19 +49,28 @@ export const useColumnDrag = <T extends DefaultRow>(
       draggable: 'th[data-column-draggable="true"]',
       ghostClass: 'is-dragging',
       chosenClass: 'is-chosen',
+      onMove: (evt) => {
+        const draggedZone = evt.dragged?.dataset.columnZone
+        const relatedZone =
+          evt.related?.dataset.columnZone ?? evt.to?.dataset.columnZone
+        return !draggedZone || !relatedZone || draggedZone === relatedZone
+      },
       onEnd: (event) => {
         const items = Array.from(
           (rowEl as HTMLElement).children
         ) as HTMLElement[]
+        const zone = (event.item.dataset.columnZone ||
+          'center') as ColumnDragZone
         const orderKeys = items
+          .filter((item) => item.dataset.columnZone === zone)
           .map((item) => item.dataset.columnId)
           .filter((id): id is string => Boolean(id))
         if (orderKeys.length < 2) return
         const reordered = options.table?.persistColumnOrder
-          ? options.table.persistColumnOrder(orderKeys)
-          : reorderColumnsByKeys(options.store, orderKeys)
+          ? options.table.persistColumnOrder(orderKeys, zone)
+          : reorderColumnsByKeys(options.store, orderKeys, zone)
         if (reordered) {
-          options.table?.emit?.('header-dragend-order', orderKeys, event)
+          options.table?.emit?.('header-dragend-order', orderKeys, zone, event)
         }
       },
     })

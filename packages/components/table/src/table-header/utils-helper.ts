@@ -2,7 +2,12 @@ import { computed, inject, shallowRef, watch } from 'vue'
 import { isClient } from '@element-plus/utils'
 import { TABLE_INJECTION_KEY } from '../tokens'
 
-import type { DefaultRow, Table, TableProps } from '../table/defaults'
+import type {
+  ColumnDragZone,
+  DefaultRow,
+  Table,
+  TableProps,
+} from '../table/defaults'
 import type { TableColumnCtx } from '../table-column/defaults'
 import type { TableHeaderProps } from '.'
 import type { Store } from '../store'
@@ -114,6 +119,7 @@ interface ColumnPersistencePayload {
   tableId: string
   colWidth: Record<string, number>
   colOrder?: string[]
+  colOrderByZone?: Partial<Record<ColumnDragZone, string[]>>
   colVisible?: Record<string, boolean>
   meta?: Record<string, unknown>
 }
@@ -184,6 +190,23 @@ const normalizePayload = (
   const colOrder = Array.isArray(value.colOrder)
     ? value.colOrder.filter((item): item is string => typeof item === 'string')
     : undefined
+  const colOrderByZone =
+    value.colOrderByZone && typeof value.colOrderByZone === 'object'
+      ? (['left', 'center', 'right'] as ColumnDragZone[]).reduce<
+          Partial<Record<ColumnDragZone, string[]>>
+        >((acc, zone) => {
+          const list = value.colOrderByZone[zone]
+          if (Array.isArray(list)) {
+            const filtered = list.filter(
+              (item: unknown): item is string => typeof item === 'string'
+            )
+            if (filtered.length) {
+              acc[zone] = filtered
+            }
+          }
+          return acc
+        }, {})
+      : undefined
   const colVisible = normalizeVisibilityMap(value.colVisible)
   const meta = normalizeMetaInfo(value.meta)
   return {
@@ -196,6 +219,7 @@ const normalizePayload = (
         : fallbackId,
     colWidth,
     colOrder,
+    colOrderByZone,
     colVisible,
     meta,
   }
@@ -223,21 +247,37 @@ export const resolveColumnIdentifier = <T extends DefaultRow>(
 }
 
 /**
+ * @description 根据列的 fixed 属性判定其所在分区
+ */
+export const resolveColumnZone = <T extends DefaultRow>(
+  column: TableColumnCtx<T>
+): ColumnDragZone => {
+  if (column.fixed === 'right') return 'right'
+  if (column.fixed === true || column.fixed === 'left') return 'left'
+  return 'center'
+}
+
+/**
  * @description 根据给定 key 顺序重新排序列集合
  */
 export const reorderColumnsByKeys = <T extends DefaultRow>(
   store: Store<T>,
-  orderKeys: string[]
+  orderKeys: string[],
+  zone?: ColumnDragZone
 ) => {
   if (!orderKeys?.length) return false
-  const orderMap = new Map(orderKeys.map((key, index) => [key, index]))
   const columns = store.states._columns.value
   if (!columns?.length) return false
+  const filterByZone = (column: TableColumnCtx<T>) =>
+    zone ? resolveColumnZone(column) === zone : true
+  const targetColumns = columns.filter(filterByZone)
+  if (!targetColumns.length) return false
+  const orderMap = new Map(orderKeys.map((key, index) => [key, index]))
   const originalIndexMap = new Map(
-    columns.map((column, index) => [column, index])
+    targetColumns.map((column, index) => [column, index])
   )
-  const sorted = [...columns]
-  sorted.sort((a, b) => {
+  const sortedTarget = [...targetColumns]
+  sortedTarget.sort((a, b) => {
     const idA = resolveColumnIdentifier(a)
     const idB = resolveColumnIdentifier(b)
     const orderA = orderMap.has(idA)
@@ -254,11 +294,25 @@ export const reorderColumnsByKeys = <T extends DefaultRow>(
     }
     return orderA - orderB
   })
+  const newColumns = [...columns]
+  if (zone) {
+    let insertIndex = 0
+    columns.forEach((column, index) => {
+      if (filterByZone(column)) {
+        newColumns[index] = sortedTarget[insertIndex++]
+      }
+    })
+  } else {
+    targetColumns.forEach((column, index) => {
+      const originalIndex = columns.indexOf(column)
+      newColumns[originalIndex] = sortedTarget[index]
+    })
+  }
   const isSame =
-    sorted.length === columns.length &&
-    sorted.every((column, index) => column === columns[index])
+    newColumns.length === columns.length &&
+    newColumns.every((column, index) => column === columns[index])
   if (isSame) return false
-  store.states._columns.value = sorted
+  store.states._columns.value = newColumns
   store.updateColumns()
   store.scheduleLayout?.(false, true)
   return true
@@ -340,12 +394,22 @@ export const useColumnPersistence = <T extends DefaultRow>(
   /**
    * @description 恢复列顺序，优先使用传入 key，否则使用缓存
    */
-  const applyPersistedOrder = (orderKeys?: string[]) => {
+  const applyPersistedOrder = () => {
     if (!shouldPersistOrder.value) return
     const payload = cachedPayload.value
-    const targetOrder = orderKeys ?? payload?.colOrder
-    if (!targetOrder?.length) return
-    reorderColumnsByKeys(store, targetOrder)
+    if (payload?.colOrderByZone) {
+      ;(['left', 'center', 'right'] as ColumnDragZone[]).forEach((zone) => {
+        const keys = payload.colOrderByZone?.[zone]
+        if (keys?.length) {
+          reorderColumnsByKeys(store, keys, zone)
+        }
+      })
+      return
+    }
+    const fallbackOrder = payload?.colOrder
+    if (fallbackOrder?.length) {
+      reorderColumnsByKeys(store, fallbackOrder)
+    }
   }
 
   /**
@@ -413,11 +477,14 @@ export const useColumnPersistence = <T extends DefaultRow>(
   /**
    * @description 记录用户自定义列顺序并同步到存储
    */
-  const persistColumnOrder = (orderedKeys: string[]) => {
+  const persistColumnOrder = (
+    orderedKeys: string[],
+    zone: ColumnDragZone = 'center'
+  ) => {
     if (!orderedKeys.length) {
       return false
     }
-    const reordered = reorderColumnsByKeys(store, orderedKeys)
+    const reordered = reorderColumnsByKeys(store, orderedKeys, zone)
     if (!reordered) return false
     if (
       !shouldPersistOrder.value ||
@@ -428,7 +495,11 @@ export const useColumnPersistence = <T extends DefaultRow>(
     }
     const payload = ensurePayload()
     if (!payload) return true
-    payload.colOrder = [...orderedKeys]
+    payload.colOrderByZone = payload.colOrderByZone || {}
+    payload.colOrderByZone[zone] = [...orderedKeys]
+    if (zone === 'center' && !payload.colOrder?.length) {
+      payload.colOrder = [...orderedKeys]
+    }
     payload.updatedAt = Date.now()
     payload.v = STORAGE_VERSION
     payload.tableId = props.id as string
