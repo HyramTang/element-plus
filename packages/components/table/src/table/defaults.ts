@@ -440,21 +440,21 @@ export default {
    */
   nativeScrollbar: Boolean,
   /**
-   * @description automatically persist user resized column widths
+   * @description 是否自动持久化列宽
    */
   saveColumnWidth: {
     type: Boolean,
     default: true,
   },
   /**
-   * @description automatically persist column order after dragging
+   * @description 是否在拖拽后持久化列顺序
    */
   saveColumnOrder: {
     type: Boolean,
     default: true,
   },
   /**
-   * @description enable column drag & drop globally
+   * @description 是否全局启用列拖拽
    */
   enableColumnDrag: {
     type: Boolean,

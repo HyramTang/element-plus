@@ -14,6 +14,9 @@ interface UseColumnDragOptions<T extends DefaultRow> {
   isGroup: Ref<boolean>
 }
 
+/**
+ * @description 负责在表头上挂载 Sortable，实现列拖拽排序
+ */
 export const useColumnDrag = <T extends DefaultRow>(
   options: UseColumnDragOptions<T>
 ) => {

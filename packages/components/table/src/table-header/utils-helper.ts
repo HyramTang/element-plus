@@ -7,6 +7,9 @@ import type { TableColumnCtx } from '../table-column/defaults'
 import type { TableHeaderProps } from '.'
 import type { Store } from '../store'
 
+/**
+ * @description 递归展开所有列，用于构造扁平列表
+ */
 const getAllColumns = <T extends DefaultRow>(
   columns: TableColumnCtx<T>[]
 ): TableColumnCtx<T>[] => {
@@ -23,6 +26,9 @@ const getAllColumns = <T extends DefaultRow>(
   return result
 }
 
+/**
+ * @description 将列信息转换为二维数组，方便表头逐行渲染
+ */
 export const convertToRows = <T extends DefaultRow>(
   originColumns: TableColumnCtx<T>[]
 ): TableColumnCtx<T>[][] => {
@@ -71,6 +77,9 @@ export const convertToRows = <T extends DefaultRow>(
   return rows
 }
 
+/**
+ * @description 提供表头需要的辅助逻辑（分组/全选等）
+ */
 function useUtils<T extends DefaultRow>(props: TableHeaderProps<T>) {
   const parent = inject(TABLE_INJECTION_KEY)
   const columnRows = computed(() => {
@@ -109,6 +118,9 @@ interface ColumnPersistencePayload {
   meta?: Record<string, unknown>
 }
 
+/**
+ * @description 构造一份空的列配置持久化数据
+ */
 const createEmptyPayload = (tableId: string): ColumnPersistencePayload => ({
   v: STORAGE_VERSION,
   updatedAt: Date.now(),
@@ -119,6 +131,9 @@ const createEmptyPayload = (tableId: string): ColumnPersistencePayload => ({
   },
 })
 
+/**
+ * @description 过滤无效宽度值，返回列宽映射
+ */
 const normalizeWidthMap = (value: Record<string, any> | undefined) => {
   if (!value || typeof value !== 'object') return {}
   return Object.entries(value).reduce<Record<string, number>>(
@@ -133,6 +148,9 @@ const normalizeWidthMap = (value: Record<string, any> | undefined) => {
   )
 }
 
+/**
+ * @description 过滤无效的列显隐数据
+ */
 const normalizeVisibilityMap = (value: Record<string, any> | undefined) => {
   if (!value || typeof value !== 'object') return undefined
   const normalized = Object.entries(value).reduce<Record<string, boolean>>(
@@ -147,11 +165,17 @@ const normalizeVisibilityMap = (value: Record<string, any> | undefined) => {
   return Object.keys(normalized).length ? normalized : undefined
 }
 
+/**
+ * @description 复制出 meta 信息，确保类型稳定
+ */
 const normalizeMetaInfo = (value: unknown) => {
   if (!value || typeof value !== 'object') return undefined
   return { ...(value as Record<string, unknown>) }
 }
 
+/**
+ * @description 将任意对象转换为规范的列配置 payload
+ */
 const normalizePayload = (
   value: Record<string, any>,
   fallbackId: string
@@ -198,6 +222,9 @@ export const resolveColumnIdentifier = <T extends DefaultRow>(
   return column.columnKey || column.property || column.rawColumnKey || column.id
 }
 
+/**
+ * @description 根据给定 key 顺序重新排序列集合
+ */
 export const reorderColumnsByKeys = <T extends DefaultRow>(
   store: Store<T>,
   orderKeys: string[]
@@ -299,6 +326,9 @@ export const useColumnPersistence = <T extends DefaultRow>(
     }
   }
 
+  /**
+   * @description 确保已经创建好可复用的 payload
+   */
   const ensurePayload = () => {
     if (!props.id) return null
     if (cachedPayload.value) return cachedPayload.value
@@ -307,6 +337,9 @@ export const useColumnPersistence = <T extends DefaultRow>(
     return payload
   }
 
+  /**
+   * @description 恢复列顺序，优先使用传入 key，否则使用缓存
+   */
   const applyPersistedOrder = (orderKeys?: string[]) => {
     if (!shouldPersistOrder.value) return
     const payload = cachedPayload.value
@@ -341,6 +374,9 @@ export const useColumnPersistence = <T extends DefaultRow>(
     }
   }
 
+  /**
+   * @description 恢复列的顺序及宽度
+   */
   const applyPersistedState = () => {
     applyPersistedOrder()
     applyPersistedWidths()

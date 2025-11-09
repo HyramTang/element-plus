@@ -163,7 +163,7 @@ export default {
     default: true,
   },
   /**
-   * @description whether this column can be reordered via header drag
+   * @description 是否允许该列参与拖拽排序
    */
   enableColumnDrag: {
     type: Boolean,
