@@ -81,7 +81,7 @@ interface Table<T extends DefaultRow = any> extends ComponentInternalInstance {
   tableId: string
   state: TableState
   persistColumnWidth?: (column: TableColumnCtx<T>, width: number) => void
-  persistColumnOrder?: (columnKeys: string[]) => void
+  persistColumnOrder?: (columnKeys: string[]) => boolean
 }
 
 type ColumnCls<T> = string | ((data: { row: T; rowIndex: number }) => string)
@@ -165,6 +165,8 @@ interface TableProps<T extends DefaultRow> {
   scrollbarTabindex?: number | string
   nativeScrollbar?: boolean
   saveColumnWidth?: boolean
+  saveColumnOrder?: boolean
+  enableColumnDrag?: boolean
 }
 
 type TableTooltipData<T extends DefaultRow> = Parameters<
@@ -441,6 +443,20 @@ export default {
    * @description automatically persist user resized column widths
    */
   saveColumnWidth: {
+    type: Boolean,
+    default: true,
+  },
+  /**
+   * @description automatically persist column order after dragging
+   */
+  saveColumnOrder: {
+    type: Boolean,
+    default: true,
+  },
+  /**
+   * @description enable column drag & drop globally
+   */
+  enableColumnDrag: {
     type: Boolean,
     default: true,
   },

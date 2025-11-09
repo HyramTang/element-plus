@@ -236,6 +236,7 @@ export default defineComponent({
     'header-dragend',
     'expand-change',
     'scroll',
+    'header-dragend-order',
   ],
   setup(props) {
     type Row = (typeof props.data)[number]

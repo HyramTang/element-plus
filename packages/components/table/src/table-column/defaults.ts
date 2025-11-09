@@ -80,6 +80,7 @@ type TableColumnCtx<T extends DefaultRow = DefaultRow> = {
   filterOpened?: boolean
   renderFilterIcon?: (scope: any) => VNode
   renderExpand?: (scope: any) => VNode
+  enableColumnDrag?: boolean
 }
 
 interface TableColumn<T extends DefaultRow> extends ComponentInternalInstance {
@@ -158,6 +159,13 @@ export default {
    * @description whether column width can be resized, works when `border` of `el-table` is `true`
    */
   resizable: {
+    type: Boolean,
+    default: true,
+  },
+  /**
+   * @description whether this column can be reordered via header drag
+   */
+  enableColumnDrag: {
     type: Boolean,
     default: true,
   },

@@ -248,8 +248,14 @@ export const useColumnPersistence = <T extends DefaultRow>(
   const cachedPayload = shallowRef<ColumnPersistencePayload | null>(null)
   const cachedWidths = shallowRef<Record<string, number>>({})
 
+  const shouldPersistWidth = computed(() => props.saveColumnWidth !== false)
+  const shouldPersistOrder = computed(() => props.saveColumnOrder !== false)
+
   const isPersistenceEnabled = computed(
-    () => !!props.saveColumnWidth && !!props.id && isClient
+    () =>
+      !!props.id &&
+      isClient &&
+      (shouldPersistWidth.value || shouldPersistOrder.value)
   )
 
   const routePath = computed(() => resolveRoutePath(table))
@@ -294,6 +300,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
   }
 
   const ensurePayload = () => {
+    if (!props.id) return null
     if (cachedPayload.value) return cachedPayload.value
     const payload = createEmptyPayload(props.id as string)
     cachedPayload.value = payload
@@ -301,6 +308,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
   }
 
   const applyPersistedOrder = (orderKeys?: string[]) => {
+    if (!shouldPersistOrder.value) return
     const payload = cachedPayload.value
     const targetOrder = orderKeys ?? payload?.colOrder
     if (!targetOrder?.length) return
@@ -313,6 +321,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
   const applyPersistedWidths = () => {
     const leafColumns = store.states.columns.value
     if (!leafColumns.length) return
+    if (!shouldPersistWidth.value) return
     const widthMap = cachedWidths.value
     if (!Object.keys(widthMap).length) return
     let mutated = false
@@ -341,11 +350,13 @@ export const useColumnPersistence = <T extends DefaultRow>(
    * @description 在列拖拽结束时更新缓存并写入存储
    */
   const persistColumnWidth = (column: TableColumnCtx<T>, width: number) => {
+    if (!shouldPersistWidth.value) return
     if (!isPersistenceEnabled.value || !resolvedStorageKey.value) return
+    const payload = ensurePayload()
+    if (!payload) return
     const identifier = resolveColumnIdentifier(column)
     const numericWidth = Number(width)
     if (!identifier || Number.isNaN(numericWidth)) return
-    const payload = ensurePayload()
     const previousWidth = payload.colWidth[identifier]
     if (previousWidth === numericWidth) return
     payload.colWidth = {
@@ -368,13 +379,19 @@ export const useColumnPersistence = <T extends DefaultRow>(
    */
   const persistColumnOrder = (orderedKeys: string[]) => {
     if (!orderedKeys.length) {
-      return
+      return false
     }
-    if (!isPersistenceEnabled.value || !resolvedStorageKey.value) {
-      reorderColumnsByKeys(store, orderedKeys)
-      return
+    const reordered = reorderColumnsByKeys(store, orderedKeys)
+    if (!reordered) return false
+    if (
+      !shouldPersistOrder.value ||
+      !isPersistenceEnabled.value ||
+      !resolvedStorageKey.value
+    ) {
+      return true
     }
     const payload = ensurePayload()
+    if (!payload) return true
     payload.colOrder = [...orderedKeys]
     payload.updatedAt = Date.now()
     payload.v = STORAGE_VERSION
@@ -384,8 +401,11 @@ export const useColumnPersistence = <T extends DefaultRow>(
     }
     cachedPayload.value = payload
     persistPayloadToStorage(resolvedStorageKey.value, payload)
-    applyPersistedOrder(orderedKeys)
+    return true
   }
+
+  table.persistColumnWidth = persistColumnWidth
+  table.persistColumnOrder = persistColumnOrder
 
   // 当路由或 table id 变化时重新读取缓存
   watch(
@@ -394,15 +414,11 @@ export const useColumnPersistence = <T extends DefaultRow>(
       if (!key) {
         cachedPayload.value = null
         cachedWidths.value = {}
-        table.persistColumnWidth = undefined
-        table.persistColumnOrder = undefined
         return
       }
       const payload = readPayloadFromStorage(key, props.id as string)
       cachedPayload.value = payload
       cachedWidths.value = { ...payload.colWidth }
-      table.persistColumnWidth = persistColumnWidth
-      table.persistColumnOrder = persistColumnOrder
       applyPersistedState()
     },
     { immediate: true }
@@ -420,12 +436,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
 
   // 当配置或前置条件变化时，动态开启/关闭持久化
   watch(isPersistenceEnabled, (enabled) => {
-    if (!enabled) {
-      table.persistColumnWidth = undefined
-      table.persistColumnOrder = undefined
-    } else if (resolvedStorageKey.value) {
-      table.persistColumnWidth = persistColumnWidth
-      table.persistColumnOrder = persistColumnOrder
+    if (enabled && resolvedStorageKey.value) {
       applyPersistedState()
     }
   })

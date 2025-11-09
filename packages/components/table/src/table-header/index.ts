@@ -175,6 +175,7 @@ export default defineComponent({
       isTableLayoutAuto,
       theadRef,
       updateFixedColumnStyle,
+      tableInstance: parent,
     }
   },
   render() {
@@ -196,6 +197,7 @@ export default defineComponent({
       $parent,
       saveIndexSelection,
       isTableLayoutAuto,
+      tableInstance,
     } = this
     let rowSpan = 1
     return h(
@@ -222,6 +224,11 @@ export default defineComponent({
               subColumns,
               column
             )
+            const columnId = resolveColumnIdentifier(column)
+            const tableDragEnabled =
+              tableInstance?.props?.enableColumnDrag !== false
+            const columnDragEnabled =
+              tableDragEnabled && column.enableColumnDrag !== false
             if (isTableLayoutAuto && column.fixed) {
               saveIndexSelection.set(_class, column)
             }
@@ -232,7 +239,8 @@ export default defineComponent({
                 colspan: column.colSpan,
                 key: `${column.id}-thead`,
                 rowspan: column.rowSpan,
-                'data-column-id': resolveColumnIdentifier(column),
+                'data-column-id': columnId,
+                'data-column-draggable': columnDragEnabled ? 'true' : 'false',
                 style: getHeaderCellStyle(
                   rowIndex,
                   cellIndex,

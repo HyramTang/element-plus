@@ -19,6 +19,10 @@ export const useColumnDrag = <T extends DefaultRow>(
 ) => {
   const sortableRef = shallowRef<Sortable | null>(null)
 
+  const tableDragEnabled = computed(
+    () => options.table?.props?.enableColumnDrag !== false
+  )
+
   const destroySortable = () => {
     sortableRef.value?.destroy()
     sortableRef.value = null
@@ -26,6 +30,7 @@ export const useColumnDrag = <T extends DefaultRow>(
 
   const setupSortable = async () => {
     if (!isClient) return
+    if (!tableDragEnabled.value) return
     if (options.isGroup.value) return
     if (options.store.states.isComplex.value) return
     await nextTick()
@@ -39,10 +44,10 @@ export const useColumnDrag = <T extends DefaultRow>(
     sortableRef.value = Sortable.create(rowEl as HTMLElement, {
       animation: 150,
       handle: '.cell',
-      draggable: 'th',
+      draggable: 'th[data-column-draggable="true"]',
       ghostClass: 'is-dragging',
       chosenClass: 'is-chosen',
-      onEnd: () => {
+      onEnd: (event) => {
         const items = Array.from(
           (rowEl as HTMLElement).children
         ) as HTMLElement[]
@@ -50,10 +55,11 @@ export const useColumnDrag = <T extends DefaultRow>(
           .map((item) => item.dataset.columnId)
           .filter((id): id is string => Boolean(id))
         if (orderKeys.length < 2) return
-        if (options.table?.persistColumnOrder) {
-          options.table.persistColumnOrder(orderKeys)
-        } else {
-          reorderColumnsByKeys(options.store, orderKeys)
+        const reordered = options.table?.persistColumnOrder
+          ? options.table.persistColumnOrder(orderKeys)
+          : reorderColumnsByKeys(options.store, orderKeys)
+        if (reordered) {
+          options.table?.emit?.('header-dragend-order', orderKeys, event)
         }
       },
     })
@@ -66,7 +72,11 @@ export const useColumnDrag = <T extends DefaultRow>(
   })
 
   watch(
-    [() => options.isGroup.value, () => options.store.states.isComplex.value],
+    [
+      () => options.isGroup.value,
+      () => options.store.states.isComplex.value,
+      tableDragEnabled,
+    ],
     () => {
       destroySortable()
       setupSortable()
