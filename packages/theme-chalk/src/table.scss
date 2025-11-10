@@ -216,6 +216,12 @@
     }
   }
 
+  th.is-drag-forbidden,
+  th.is-drag-forbidden .cell,
+  th.is-drag-forbidden .#{$namespace}-table__column-drag-handle {
+    cursor: not-allowed !important;
+  }
+
   @each $size in (large, default, small) {
     @include m($size) {
       font-size: map.get($table-font-size, $size);

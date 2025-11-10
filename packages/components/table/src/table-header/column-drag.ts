@@ -22,6 +22,28 @@ export const useColumnDrag = <T extends DefaultRow>(
 ) => {
   const sortableRef = shallowRef<Sortable | null>(null)
 
+  let forbiddenState = false
+  let lastDraggedEl: HTMLElement | null = null
+  const setForbiddenState = (
+    forbidden: boolean,
+    dragged?: HTMLElement | null
+  ) => {
+    if (forbiddenState === forbidden && dragged === lastDraggedEl) return
+    forbiddenState = forbidden
+    if (dragged) {
+      dragged.classList.toggle('is-drag-forbidden', forbidden)
+      lastDraggedEl = dragged
+    }
+    if (!dragged && lastDraggedEl) {
+      lastDraggedEl.classList.toggle('is-drag-forbidden', forbidden)
+    }
+    if (!forbidden) {
+      document.body.style.cursor = ''
+    } else {
+      document.body.style.cursor = 'not-allowed'
+    }
+  }
+
   const tableDragEnabled = computed(
     () => options.table?.props?.enableColumnDrag !== false
   )
@@ -29,6 +51,8 @@ export const useColumnDrag = <T extends DefaultRow>(
   const destroySortable = () => {
     sortableRef.value?.destroy()
     sortableRef.value = null
+    setForbiddenState(false, lastDraggedEl)
+    lastDraggedEl = null
   }
 
   const setupSortable = async () => {
@@ -53,9 +77,13 @@ export const useColumnDrag = <T extends DefaultRow>(
         const draggedZone = evt.dragged?.dataset.columnZone
         const relatedZone =
           evt.related?.dataset.columnZone ?? evt.to?.dataset.columnZone
-        return !draggedZone || !relatedZone || draggedZone === relatedZone
+        const allowed =
+          !draggedZone || !relatedZone || draggedZone === relatedZone
+        setForbiddenState(!allowed, evt.dragged as HTMLElement | undefined)
+        return allowed
       },
       onEnd: (event) => {
+        setForbiddenState(false, event.item as HTMLElement)
         const items = Array.from(
           (rowEl as HTMLElement).children
         ) as HTMLElement[]
