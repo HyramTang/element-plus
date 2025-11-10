@@ -110,7 +110,7 @@ function useUtils<T extends DefaultRow>(props: TableHeaderProps<T>) {
 
 export default useUtils
 
-const COLUMN_WIDTH_STORAGE_PREFIX = 'tableView:'
+const COLUMN_WIDTH_STORAGE_PREFIX = 'bsui:el-table:'
 const STORAGE_VERSION = 1
 
 interface ColumnPersistencePayload {
@@ -343,8 +343,10 @@ export const useColumnPersistence = <T extends DefaultRow>(
 
   const resolvedStorageKey = computed(() => {
     if (!isPersistenceEnabled.value) return ''
-    const origin = isClient ? (window.location?.origin ?? '') : ''
-    return `${COLUMN_WIDTH_STORAGE_PREFIX}${origin}:${routePath.value}#${props.id}`
+    let origin = isClient ? (window.location?.origin ?? '') : ''
+    origin = origin.replaceAll(':', '%3a')
+    const _url = `${origin}${routePath.value}`.toLowerCase()
+    return `${COLUMN_WIDTH_STORAGE_PREFIX}${_url}#${props.id}`
   })
 
   /**
