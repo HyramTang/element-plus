@@ -25,7 +25,7 @@ import { useColumnDrag } from './column-drag'
 
 import type TableLayout from '../table-layout'
 import type { ComponentInternalInstance, PropType, Ref } from 'vue'
-import type { DefaultRow, Sort, Table } from '../table/defaults'
+import type { ColumnDragZone, DefaultRow, Sort, Table } from '../table/defaults'
 import type { Store } from '../store'
 
 export interface TableHeader extends ComponentInternalInstance {
@@ -202,6 +202,22 @@ export default defineComponent({
       isTableLayoutAuto,
       tableInstance,
     } = this
+    const tableDragEnabledGlobal =
+      tableInstance?.props?.enableColumnDrag !== false
+    const zoneDraggableCount: Record<ColumnDragZone, number> = {
+      left: 0,
+      center: 0,
+      right: 0,
+    }
+    if (tableDragEnabledGlobal && !isGroup) {
+      const leafColumns = store?.states?.columns?.value ?? []
+      leafColumns.forEach((column) => {
+        if (column.type !== 'default') return
+        if (column.enableColumnDrag === false) return
+        const zone = resolveColumnZone(column)
+        zoneDraggableCount[zone] += 1
+      })
+    }
     let rowSpan = 1
     return h(
       'thead',
@@ -229,13 +245,13 @@ export default defineComponent({
             )
             const columnId = resolveColumnIdentifier(column)
             const columnZone = resolveColumnZone(column)
-            const tableDragEnabled =
-              tableInstance?.props?.enableColumnDrag !== false
+            const tableDragEnabled = tableDragEnabledGlobal
             const columnDragEnabled =
               tableDragEnabled &&
               !isGroup &&
               column.enableColumnDrag !== false &&
-              column.type === 'default'
+              column.type === 'default' &&
+              zoneDraggableCount[columnZone] > 1
             if (isTableLayoutAuto && column.fixed) {
               saveIndexSelection.set(_class, column)
             }
