@@ -1,5 +1,6 @@
 import { computed, nextTick, onBeforeUnmount, shallowRef, watch } from 'vue'
 import Sortable from 'sortablejs'
+import { debounce } from 'lodash-unified'
 import { isClient } from '@element-plus/utils'
 import { reorderColumnsByKeys, resolveColumnIdentifier } from './utils-helper'
 
@@ -104,6 +105,11 @@ export const useColumnDrag = <T extends DefaultRow>(
     })
   }
 
+  const scheduleSetup = debounce(() => {
+    destroySortable()
+    setupSortable()
+  }, 50)
+
   const columnsSignature = computed(() => {
     return options.store.states.columns.value
       .map((column) => resolveColumnIdentifier(column))
@@ -117,8 +123,7 @@ export const useColumnDrag = <T extends DefaultRow>(
       tableDragEnabled,
     ],
     () => {
-      destroySortable()
-      setupSortable()
+      scheduleSetup()
     },
     { immediate: true }
   )
@@ -129,6 +134,7 @@ export const useColumnDrag = <T extends DefaultRow>(
   })
 
   onBeforeUnmount(() => {
+    scheduleSetup.cancel()
     destroySortable()
   })
 }
