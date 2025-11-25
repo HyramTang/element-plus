@@ -1,5 +1,6 @@
 import { computed, inject, shallowRef, watch } from 'vue'
 import { ElMessageBox } from '@element-plus/components/message-box'
+import { openDB } from 'idb'
 import { isClient } from '@element-plus/utils'
 import { TABLE_INJECTION_KEY } from '../tokens'
 
@@ -113,6 +114,9 @@ export default useUtils
 
 const COLUMN_WIDTH_STORAGE_PREFIX = 'bsui:el-table:'
 const STORAGE_VERSION = 1
+const DB_NAME = 'el-table'
+const DB_VERSION = 1
+const DB_STORE_NAME = 'column-persistence'
 
 interface ColumnPersistencePayload {
   v: number
@@ -348,6 +352,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
   props: TableProps<T>,
   store: Store<T>
 ) => {
+  let dbPromise: ReturnType<typeof openDB> | null = null
   const cachedPayload = shallowRef<ColumnPersistencePayload | null>(null)
   const cachedWidths = shallowRef<Record<string, number>>({})
   const cachedVisibility = shallowRef<Record<string, boolean>>({})
@@ -372,15 +377,30 @@ export const useColumnPersistence = <T extends DefaultRow>(
     return `${COLUMN_WIDTH_STORAGE_PREFIX}${_url}#${props.id}`
   })
 
+  const getDb = async () => {
+    if (!isClient) return null
+    if (!dbPromise) {
+      dbPromise = openDB(DB_NAME, DB_VERSION, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains(DB_STORE_NAME)) {
+            db.createObjectStore(DB_STORE_NAME)
+          }
+        },
+      })
+    }
+    return dbPromise
+  }
+
   /**
    * @description 读取存储中的完整列配置
    */
-  const readPayloadFromStorage = (key: string, tableId: string) => {
+  const readPayloadFromStorage = async (key: string, tableId: string) => {
     if (!key || !isClient) return createEmptyPayload(tableId)
     try {
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return createEmptyPayload(tableId)
-      const parsed = JSON.parse(raw)
+      const db = await getDb()
+      const raw = db ? await db.get(DB_STORE_NAME, key) : null
+      const fallbackRaw = !raw ? window.localStorage.getItem(key) : null
+      const parsed = raw ?? (fallbackRaw ? JSON.parse(fallbackRaw) : null)
       if (parsed && typeof parsed === 'object') {
         return normalizePayload(parsed, tableId)
       }
@@ -393,11 +413,20 @@ export const useColumnPersistence = <T extends DefaultRow>(
   /**
    * @description 将完整列配置写入存储
    */
-  const persistPayloadToStorage = (
+  const persistPayloadToStorage = async (
     key: string,
     payload: ColumnPersistencePayload
   ) => {
     if (!key || !isClient) return
+    try {
+      const db = await getDb()
+      if (db) {
+        await db.put(DB_STORE_NAME, payload, key)
+        return
+      }
+    } catch {
+      // 忽略存储异常，尝试回退 localStorage
+    }
     try {
       window.localStorage.setItem(key, JSON.stringify(payload))
     } catch {
@@ -652,6 +681,14 @@ export const useColumnPersistence = <T extends DefaultRow>(
     cachedWidths.value = {}
     cachedVisibility.value = {}
     if (key) {
+      try {
+        const db = await getDb()
+        if (db) {
+          await db.delete(DB_STORE_NAME, key)
+        }
+      } catch {
+        // 忽略移除失败
+      }
       try {
         window.localStorage.removeItem(key)
       } catch {
