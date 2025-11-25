@@ -317,7 +317,11 @@ export default defineComponent({
 
     useKeyRender(table)
     // 基于视图与 table id 持久化列配置（列宽/顺序等）
-    const disposeColumnPersistence = useColumnPersistence(table, props, store)
+    const {
+      dispose: disposeColumnPersistence,
+      persistColumnVisibility,
+      getPersistedColumnVisibility,
+    } = useColumnPersistence(table, props, store)
 
     onBeforeUnmount(() => {
       disposeColumnPersistence()
@@ -413,6 +417,14 @@ export default defineComponent({
        * @description whether to allow drag the last column
        */
       allowDragLastColumn: props.allowDragLastColumn,
+      /**
+       * @description 持久化列显隐状态（对外暴露，便于外部控制）
+       */
+      persistColumnVisibility,
+      /**
+       * @description 获取已持久化的列显隐状态映射
+       */
+      getPersistedColumnVisibility,
     }
   },
 })

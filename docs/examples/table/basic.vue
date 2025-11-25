@@ -1,5 +1,6 @@
 <template>
-  <el-table id="aabb1" :data="tableData" style="width: 100%">
+  <el-button type="primary" @click="onClick">隐藏 name 列</el-button>
+  <el-table id="aabb1" ref="tableRef" :data="tableData">
     <el-table-column prop="date" sortable label="Date" width="180" />
     <el-table-column prop="name" label="Name" width="180" />
     <el-table-column prop="address" label="Address" />
@@ -7,6 +8,15 @@
 </template>
 
 <script lang="ts" setup>
+import { ref } from 'vue'
+
+const tableRef = ref()
+const showName = ref(true)
+const onClick = () => {
+  showName.value = !showName.value
+  tableRef.value.persistColumnVisibility('name', showName.value)
+}
+
 const tableData = [
   {
     date: '2016-05-03',

@@ -328,6 +328,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
 ) => {
   const cachedPayload = shallowRef<ColumnPersistencePayload | null>(null)
   const cachedWidths = shallowRef<Record<string, number>>({})
+  const cachedVisibility = shallowRef<Record<string, boolean>>({})
 
   const shouldPersistWidth = computed(() => props.saveColumnWidth !== false)
   const shouldPersistOrder = computed(() => props.saveColumnOrder !== false)
@@ -441,11 +442,21 @@ export const useColumnPersistence = <T extends DefaultRow>(
   }
 
   /**
+   * @description 应用缓存的列显隐配置（仅标记，不直接改动渲染，可供外部读取使用）
+   */
+  const applyPersistedVisibility = () => {
+    const payload = cachedPayload.value
+    if (!payload?.colVisible) return
+    cachedVisibility.value = { ...payload.colVisible }
+  }
+
+  /**
    * @description 恢复列的顺序及宽度
    */
   const applyPersistedState = () => {
     applyPersistedOrder()
     applyPersistedWidths()
+    applyPersistedVisibility()
   }
 
   /**
@@ -513,8 +524,42 @@ export const useColumnPersistence = <T extends DefaultRow>(
     return true
   }
 
+  /**
+   * @description 更新列显隐状态并写入存储
+   */
+  const persistColumnVisibility = (identifier: string, visible: boolean) => {
+    if (!identifier) return
+    if (!isPersistenceEnabled.value || !resolvedStorageKey.value) return
+    const payload = ensurePayload()
+    if (!payload) return
+    const current = payload.colVisible || {}
+    if (current[identifier] === visible) return
+    payload.colVisible = {
+      ...current,
+      [identifier]: visible,
+    }
+    payload.updatedAt = Date.now()
+    payload.v = STORAGE_VERSION
+    payload.tableId = props.id as string
+    if (!payload.meta) {
+      payload.meta = { creator: 'el-table' }
+    }
+    cachedPayload.value = payload
+    cachedVisibility.value = { ...payload.colVisible }
+    persistPayloadToStorage(resolvedStorageKey.value, payload)
+  }
+
+  /**
+   * @description 获取当前缓存的列显隐配置
+   */
+  const getPersistedColumnVisibility = () => {
+    return { ...cachedVisibility.value }
+  }
+
   table.persistColumnWidth = persistColumnWidth
   table.persistColumnOrder = persistColumnOrder
+  table.persistColumnVisibility = persistColumnVisibility
+  table.getPersistedColumnVisibility = getPersistedColumnVisibility
 
   // 当路由或 table id 变化时重新读取缓存
   watch(
@@ -528,6 +573,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
       const payload = readPayloadFromStorage(key, props.id as string)
       cachedPayload.value = payload
       cachedWidths.value = { ...payload.colWidth }
+      cachedVisibility.value = { ...(payload.colVisible || {}) }
       applyPersistedState()
     },
     { immediate: true }
@@ -550,8 +596,16 @@ export const useColumnPersistence = <T extends DefaultRow>(
     }
   })
 
-  return () => {
+  const dispose = () => {
     table.persistColumnWidth = undefined
     table.persistColumnOrder = undefined
+    table.persistColumnVisibility = undefined
+    table.getPersistedColumnVisibility = undefined
+  }
+
+  return {
+    dispose,
+    persistColumnVisibility,
+    getPersistedColumnVisibility,
   }
 }
