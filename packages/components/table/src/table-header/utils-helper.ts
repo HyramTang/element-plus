@@ -1,4 +1,5 @@
 import { computed, inject, shallowRef, watch } from 'vue'
+import { ElMessageBox } from '@element-plus/components/message-box'
 import { isClient } from '@element-plus/utils'
 import { TABLE_INJECTION_KEY } from '../tokens'
 
@@ -644,6 +645,34 @@ export const useColumnPersistence = <T extends DefaultRow>(
   table.persistColumnOrder = persistColumnOrder
   table.persistColumnVisibility = persistColumnVisibility
   table.getPersistedColumnVisibility = getPersistedColumnVisibility
+  table.clearColumnPersistence = async () => {
+    if (!isClient) return
+    const key = resolvedStorageKey.value
+    cachedPayload.value = null
+    cachedWidths.value = {}
+    cachedVisibility.value = {}
+    if (key) {
+      try {
+        window.localStorage.removeItem(key)
+      } catch {
+        // 忽略移除失败
+      }
+    }
+    try {
+      await ElMessageBox.confirm(
+        '重置个性化数据后，需要重新刷新页面方能生效，是否立即刷新页面？',
+        '提示',
+        {
+          type: 'warning',
+          confirmButtonText: '刷新',
+          cancelButtonText: '取消',
+        }
+      )
+      window.location.reload()
+    } catch {
+      // 用户取消
+    }
+  }
 
   // 当路由或 table id 变化时重新读取缓存
   let loadTaskId = 0
@@ -691,11 +720,13 @@ export const useColumnPersistence = <T extends DefaultRow>(
     table.persistColumnOrder = undefined
     table.persistColumnVisibility = undefined
     table.getPersistedColumnVisibility = undefined
+    table.clearColumnPersistence = undefined
   }
 
   return {
     dispose,
     persistColumnVisibility,
     getPersistedColumnVisibility,
+    clearColumnPersistence: table.clearColumnPersistence,
   }
 }

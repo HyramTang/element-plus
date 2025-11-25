@@ -323,6 +323,7 @@ export default defineComponent({
       dispose: disposeColumnPersistence,
       persistColumnVisibility,
       getPersistedColumnVisibility,
+      clearColumnPersistence,
     } = useColumnPersistence(table, props, store)
 
     onBeforeUnmount(() => {
@@ -427,6 +428,10 @@ export default defineComponent({
        * @description 获取已持久化的列显隐状态映射
        */
       getPersistedColumnVisibility,
+      /**
+       * @description 清空列配置持久化数据并重新加载默认状态
+       */
+      clearColumnPersistence,
     }
   },
 })

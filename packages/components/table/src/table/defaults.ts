@@ -84,6 +84,7 @@ interface Table<T extends DefaultRow = any> extends ComponentInternalInstance {
   persistColumnOrder?: (columnKeys: string[], zone?: ColumnDragZone) => boolean
   persistColumnVisibility?: (identifier: string, visible: boolean) => void
   getPersistedColumnVisibility?: () => Record<string, boolean>
+  clearColumnPersistence?: () => Promise<void> | void
 }
 
 type ColumnCls<T> = string | ((data: { row: T; rowIndex: number }) => string)

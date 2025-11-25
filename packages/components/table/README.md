@@ -155,5 +155,6 @@ sequenceDiagram
 - **多级表头**：因结构复杂默认禁用列拖拽。
 - **自定义句柄样式**：`packages/theme-chalk/src/table.scss` 中的 `.el-table__column-drag-handle` 可按需调整。
 - **未来扩展**：可在 `useColumnPersistence` 基础上接入外部存储（GraphQL、IndexedDB 等），或增加 loader/saver 钩子。
+- **清空持久化**：实例方法 `clearColumnPersistence()` 会清除当前表的存储（含 localStorage），并提示用户刷新页面后生效。
 
 如需进一步深入，可从 `table.vue`、`table-header/utils-helper.ts` 与 `store/watcher.ts` 着手阅读。欢迎针对本文档反馈意见，后续会结合 hooks 计划持续完善。

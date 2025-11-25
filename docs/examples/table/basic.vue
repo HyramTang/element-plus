@@ -1,12 +1,7 @@
 <template>
   <el-button type="primary" @click="onClick">隐藏 name 列</el-button>
-  <el-table
-    id="aabb1"
-    ref="tableRef"
-    :data="tableData"
-    @column-persistence-load="onLoadPersistence"
-    @column-persistence-save="onSavePersistence"
-  >
+  <el-button type="primary" @click="onClickClear">清空持久化数据</el-button>
+  <el-table id="aabb1" ref="tableRef" :data="tableData">
     <el-table-column prop="date" sortable label="Date" width="180" />
     <el-table-column prop="name" label="Name" width="180" />
     <el-table-column prop="address" label="Address" />
@@ -18,6 +13,9 @@ import { ref } from 'vue'
 
 const tableRef = ref()
 const showName = ref(true)
+const onClickClear = async () => {
+  await tableRef.value.clearColumnPersistence()
+}
 const onClick = () => {
   showName.value = !showName.value
   tableRef.value.persistColumnVisibility('name', showName.value)
