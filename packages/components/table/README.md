@@ -65,6 +65,8 @@ flowchart LR
 | `enable-column-drag`                                  | 是否渲染列拖拽句柄并启用排序（默认 true） | `column-drag.ts`               |
 | `header-dragend` (原生)                               | 列宽拖拽结束                              | `table-header/event-helper.ts` |
 | `header-dragend-order`                                | 列顺序拖拽结束（新增）                    | `table-header/column-drag.ts`  |
+| `column-persistence-load`                             | 加载持久化数据（可覆盖默认 localStorage） | `table-header/utils-helper.ts` |
+| `column-persistence-save`                             | 持久化数据写入前触发，便于自定义存储      | `table-header/utils-helper.ts` |
 | 其他事件（`select`、`sort-change`、`cell-click` ...） | 与文档一致                                | `table.vue emits`              |
 
 ## 列配置持久化（列宽 & 列顺序）
@@ -98,8 +100,23 @@ flowchart LR
    - 列排序拖拽 -> `column-drag.ts` -> `table.persistColumnOrder(orderKeys, zone)` -> 更新对应区域的 `colOrderByZone` 并写入 storage。
    - `saveColumnWidth`/`saveColumnOrder` 可关闭对应持久化逻辑。
 
-3. **自定义扩展思路**  
-   若需要自定义存储介质，可以在未来基于 `column-state-loader/saver`（见讨论建议）钩子接管上述流程。
+3. **对接自定义存储**  
+   通过事件可以完全接管数据的读写：
+
+   ```vue
+   <el-table
+     id="employeeList"
+     @column-persistence-load="
+       (key, tableId, resolve) => resolve(api.fetch(tableId))
+     "
+     @column-persistence-save="
+       (key, payload) => api.save(payload.tableId, payload)
+     "
+   />
+   ```
+
+   - `column-persistence-load(storageKey, tableId, resolve)`：调用 `resolve(payload | Promise)` 后，可覆盖默认的 localStorage 读取结果。
+   - `column-persistence-save(storageKey, payload)`：在写入 localStorage 前触发，便于同步到 IndexedDB/接口等。
 
 ## 列拖拽排序
 

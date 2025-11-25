@@ -225,6 +225,27 @@ const normalizePayload = (
   }
 }
 
+const clonePersistencePayload = (
+  payload: ColumnPersistencePayload
+): ColumnPersistencePayload => ({
+  ...payload,
+  colWidth: { ...payload.colWidth },
+  colOrder: payload.colOrder ? [...payload.colOrder] : undefined,
+  colOrderByZone: payload.colOrderByZone
+    ? (['left', 'center', 'right'] as ColumnDragZone[]).reduce<
+        Partial<Record<ColumnDragZone, string[]>>
+      >((acc, zone) => {
+        const list = payload.colOrderByZone?.[zone]
+        if (list?.length) {
+          acc[zone] = [...list]
+        }
+        return acc
+      }, {})
+    : undefined,
+  colVisible: payload.colVisible ? { ...payload.colVisible } : undefined,
+  meta: payload.meta ? { ...payload.meta } : undefined,
+})
+
 /**
  * @description 获取当前路由路径，优先读取 vue-router，其次使用浏览器 pathname
  */
@@ -384,6 +405,69 @@ export const useColumnPersistence = <T extends DefaultRow>(
   }
 
   /**
+   * @description 触发外部存储事件，便于使用者将持久化数据写入自定义介质
+   */
+  const emitPersistenceSave = (
+    key: string,
+    payload: ColumnPersistencePayload
+  ) => {
+    if (!table?.emit || !key) return
+    table.emit('column-persistence-save', key, clonePersistencePayload(payload))
+  }
+
+  /**
+   * @description 触发外部加载事件，允许使用者提供自定义持久化数据
+   */
+  const emitPersistenceLoad = async (key: string, tableId: string) => {
+    if (!table?.emit || !key) return null
+    let resolved:
+      | ColumnPersistencePayload
+      | Record<string, any>
+      | null
+      | undefined
+      | Promise<
+          ColumnPersistencePayload | Record<string, any> | null | undefined
+        >
+    const resolver = (
+      payload:
+        | ColumnPersistencePayload
+        | Record<string, any>
+        | null
+        | undefined
+        | Promise<
+            ColumnPersistencePayload | Record<string, any> | null | undefined
+          >
+    ) => {
+      resolved = payload
+    }
+    try {
+      table.emit('column-persistence-load', key, tableId, resolver)
+      if (resolved === undefined) return null
+      const normalized = await resolved
+      if (normalized && typeof normalized === 'object') {
+        return normalizePayload(normalized as Record<string, any>, tableId)
+      }
+    } catch {
+      // 外部事件抛错不应中断默认逻辑
+    }
+    return null
+  }
+
+  const syncPayloadToStorage = (payload: ColumnPersistencePayload) => {
+    if (!isPersistenceEnabled.value || !isClient || !resolvedStorageKey.value) {
+      return
+    }
+    emitPersistenceSave(resolvedStorageKey.value, payload)
+    persistPayloadToStorage(resolvedStorageKey.value, payload)
+  }
+
+  const resolvePersistedPayload = async (key: string, tableId: string) => {
+    const fromEvent = await emitPersistenceLoad(key, tableId)
+    if (fromEvent) return fromEvent
+    return readPayloadFromStorage(key, tableId)
+  }
+
+  /**
    * @description 确保已经创建好可复用的 payload
    */
   const ensurePayload = () => {
@@ -484,7 +568,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
     }
     cachedPayload.value = payload
     cachedWidths.value = { ...payload.colWidth }
-    persistPayloadToStorage(resolvedStorageKey.value, payload)
+    syncPayloadToStorage(payload)
   }
 
   /**
@@ -520,7 +604,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
       payload.meta = { creator: 'el-table' }
     }
     cachedPayload.value = payload
-    persistPayloadToStorage(resolvedStorageKey.value, payload)
+    syncPayloadToStorage(payload)
     return true
   }
 
@@ -546,7 +630,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
     }
     cachedPayload.value = payload
     cachedVisibility.value = { ...payload.colVisible }
-    persistPayloadToStorage(resolvedStorageKey.value, payload)
+    syncPayloadToStorage(payload)
   }
 
   /**
@@ -562,15 +646,21 @@ export const useColumnPersistence = <T extends DefaultRow>(
   table.getPersistedColumnVisibility = getPersistedColumnVisibility
 
   // 当路由或 table id 变化时重新读取缓存
+  let loadTaskId = 0
   watch(
     resolvedStorageKey,
-    (key) => {
+    async (key) => {
+      const taskId = ++loadTaskId
       if (!key) {
         cachedPayload.value = null
         cachedWidths.value = {}
+        cachedVisibility.value = {}
         return
       }
-      const payload = readPayloadFromStorage(key, props.id as string)
+      const payload =
+        (await resolvePersistedPayload(key, props.id as string)) ||
+        createEmptyPayload(props.id as string)
+      if (taskId !== loadTaskId) return
       cachedPayload.value = payload
       cachedWidths.value = { ...payload.colWidth }
       cachedVisibility.value = { ...(payload.colVisible || {}) }
