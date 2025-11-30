@@ -263,6 +263,11 @@ const resolveRoutePath = <T extends DefaultRow>(table: Table<T>) => {
   return ''
 }
 
+const normalizeRoutePath = (path: string) => {
+  if (!path) return '/'
+  return path === '/' ? '/' : path.replace(/\/+$/, '')
+}
+
 /**
  * @description 计算列的唯一标识，优先使用 column-key/prop 等
  */
@@ -367,7 +372,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
       (shouldPersistWidth.value || shouldPersistOrder.value)
   )
 
-  const routePath = computed(() => resolveRoutePath(table))
+  const routePath = computed(() => normalizeRoutePath(resolveRoutePath(table)))
 
   const resolvedStorageKey = computed(() => {
     if (!isPersistenceEnabled.value) return ''
