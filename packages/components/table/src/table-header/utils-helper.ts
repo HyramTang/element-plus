@@ -114,9 +114,9 @@ export default useUtils
 
 const COLUMN_WIDTH_STORAGE_PREFIX = 'bsui:el-table:'
 const STORAGE_VERSION = 1
-const DB_NAME = 'el-table'
+const DB_NAME = 'bsui'
 const DB_VERSION = 1
-const DB_STORE_NAME = 'column-persistence'
+const DB_STORE_NAME = 'el-table'
 
 interface ColumnPersistencePayload {
   v: number
