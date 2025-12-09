@@ -167,9 +167,8 @@ interface TableProps<T extends DefaultRow> {
   appendFilterPanelTo?: string
   scrollbarTabindex?: number | string
   nativeScrollbar?: boolean
-  saveColumnWidth?: boolean
-  saveColumnOrder?: boolean
-  enableColumnDrag?: boolean
+  columnStore?: boolean | Array<'order' | 'width' | 'visible'>
+  columnDragEnable?: boolean
 }
 
 type TableTooltipData<T extends DefaultRow> = Parameters<
@@ -445,23 +444,25 @@ export default {
    */
   nativeScrollbar: Boolean,
   /**
-   * @description 是否自动持久化列宽
+   * @description 是否开启列状态持久化（true=全部，false=关闭，数组精确到 order/width/visible）
    */
-  saveColumnWidth: {
-    type: Boolean,
+  columnStore: {
+    type: [Boolean, Array] as PropType<
+      boolean | Array<'order' | 'width' | 'visible'>
+    >,
     default: true,
-  },
-  /**
-   * @description 是否在拖拽后持久化列顺序
-   */
-  saveColumnOrder: {
-    type: Boolean,
-    default: true,
+    validator: (val: boolean | Array<string>) => {
+      if (typeof val === 'boolean') return true
+      if (Array.isArray(val)) {
+        return val.every((item) => ['order', 'width', 'visible'].includes(item))
+      }
+      return false
+    },
   },
   /**
    * @description 是否全局启用列拖拽
    */
-  enableColumnDrag: {
+  columnDragEnable: {
     type: Boolean,
     default: true,
   },

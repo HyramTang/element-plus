@@ -29,7 +29,7 @@ flowchart LR
   subgraph Props
     data[[data]]
     columns[[<el-table-column>...]]
-    options[[props: size/border/saveColumnWidth/...]]
+    options[[props: size/border/columnStore/...]]
   end
 
   Props --> TableVue{table.vue}
@@ -60,13 +60,12 @@ flowchart LR
 | `data`                                                | 表格数据                                  | `table.vue` -> `store`         |
 | `border`/`stripe`/`size` 等                           | 外观控制                                  | 直接影响模板 & class           |
 | `row-key`                                             | 用于行复用/选择缓存                       | `store`                        |
-| `save-column-width`                                   | 是否持久化列宽（默认 true）               | `useColumnPersistence`         |
-| `save-column-order`                                   | 是否持久化列顺序（默认 true）             | `useColumnPersistence`         |
-| `enable-column-drag`                                  | 是否渲染列拖拽句柄并启用排序（默认 true） | `column-drag.ts`               |
+| `column-store`                                        | 列状态持久化开关（true/false/数组）       | `useColumnPersistence`         |
+| `column-drag-enable`                                  | 是否渲染列拖拽句柄并启用排序（默认 true） | `column-drag.ts`               |
 | `header-dragend` (原生)                               | 列宽拖拽结束                              | `table-header/event-helper.ts` |
 | `header-dragend-order`                                | 列顺序拖拽结束（新增）                    | `table-header/column-drag.ts`  |
-| `column-persistence-load`                             | 加载持久化数据（可覆盖默认 localStorage） | `table-header/utils-helper.ts` |
-| `column-persistence-save`                             | 持久化数据写入前触发，便于自定义存储      | `table-header/utils-helper.ts` |
+| `column-store-load`                                   | 加载持久化数据（可覆盖默认 localStorage） | `table-header/utils-helper.ts` |
+| `column-store-save`                                   | 持久化数据写入前触发，便于自定义存储      | `table-header/utils-helper.ts` |
 | 其他事件（`select`、`sort-change`、`cell-click` ...） | 与文档一致                                | `table.vue emits`              |
 
 ## 列配置持久化（列宽 & 列顺序）
@@ -98,7 +97,8 @@ flowchart LR
    - `useColumnPersistence` 监听路由/tableId，自动从 localStorage 读取 state，并在列变化时应用列宽/顺序。
    - 列宽拖拽 -> `table-header/event-helper.ts` -> `table.persistColumnWidth(column, width)` -> 更新 `colWidth` 并写入 storage。
    - 列排序拖拽 -> `column-drag.ts` -> `table.persistColumnOrder(orderKeys, zone)` -> 更新对应区域的 `colOrderByZone` 并写入 storage。
-   - `saveColumnWidth`/`saveColumnOrder` 可关闭对应持久化逻辑。
+
+- `columnStore` = `false` 可一次性关闭所有列状态持久化；传入 `['width']` 等数组可精确打开。
 
 3. **对接自定义存储**  
    通过事件可以完全接管数据的读写：
@@ -106,48 +106,46 @@ flowchart LR
    ```vue
    <el-table
      id="employeeList"
-     @column-persistence-load="
-       (key, tableId, resolve) => resolve(api.fetch(tableId))
-     "
-     @column-persistence-save="
-       (key, payload) => api.save(payload.tableId, payload)
-     "
+     @column-store-load="(key, tableId, resolve) => resolve(api.fetch(tableId))"
+     @column-store-save="(key, payload) => api.save(payload.tableId, payload)"
    />
    ```
 
-   - `column-persistence-load(storageKey, tableId, resolve)`：调用 `resolve(payload | Promise)` 后，可覆盖默认的 localStorage 读取结果。
-   - `column-persistence-save(storageKey, payload)`：在写入 localStorage 前触发，便于同步到 IndexedDB/接口等。
+````
+
+- `column-store-load(storageKey, tableId, resolve)`：调用 `resolve(payload | Promise)` 后，可覆盖默认的 localStorage 读取结果。
+- `column-store-save(storageKey, payload)`：在写入 localStorage 前触发，便于同步到 IndexedDB/接口等。
 
 ## 列拖拽排序
 
-- `enable-column-drag` 控制是否渲染拖拽句柄（“⋮⋮”），并允许在各个区域内排序。
+- `column-drag-enable` 控制是否渲染拖拽句柄（“⋮⋮”），并允许在各个区域内排序。
 - 句柄逻辑：
-  - 仅在 `<th>` 中渲染 `span.el-table__column-drag-handle`，鼠标 hover 时出现。
-  - SortableJS 只以句柄作为 `handle`，不会阻塞文本选择。
+- 仅在 `<th>` 中渲染 `span.el-table__column-drag-handle`，鼠标 hover 时出现。
+- SortableJS 只以句柄作为 `handle`，不会阻塞文本选择。
 - 分区限制：
-  - 每个 `<th>` 带有 `data-column-zone="left|center|right"`。
-  - 拖动时通过 Sortable 的 `onMove`/`draggable` 保证只能在同一 zone 内排序。
+- 每个 `<th>` 带有 `data-column-zone="left|center|right"`。
+- 拖动时通过 Sortable 的 `onMove`/`draggable` 保证只能在同一 zone 内排序。
 - 事件：
-  - `header-dragend-order(orderKeys, zone, event)` 告知用户新顺序以及所在区域。
-  - 内部自动调用 `persistColumnOrder`，若关闭持久化则只会更新一次 DOM。
+- `header-dragend-order(orderKeys, zone, event)` 告知用户新顺序以及所在区域。
+- 内部自动调用 `persistColumnOrder`，若关闭持久化则只会更新一次 DOM。
 
 ## Mermaid：列拖拽 & 持久化流程
 
 ```mermaid
 sequenceDiagram
-  participant User as 用户
-  participant Header as TableHeader
-  participant Drag as useColumnDrag
-  participant Persist as useColumnPersistence
-  participant Storage as localStorage
+participant User as 用户
+participant Header as TableHeader
+participant Drag as useColumnDrag
+participant Persist as useColumnPersistence
+participant Storage as localStorage
 
-  User->>Header: 拖动句柄
-  Header->>Drag: Sortable onEnd
-  Drag->>Persist: persistColumnOrder(orderKeys, zone)
-  Persist->>Storage: 写入 colOrderByZone
-  Persist-->>Header: scheduleLayout(false, true)
-  Drag-->>User: emit('header-dragend-order', orderKeys, zone, event)
-```
+User->>Header: 拖动句柄
+Header->>Drag: Sortable onEnd
+Drag->>Persist: persistColumnOrder(orderKeys, zone)
+Persist->>Storage: 写入 colOrderByZone
+Persist-->>Header: scheduleLayout(false, true)
+Drag-->>User: emit('header-dragend-order', orderKeys, zone, event)
+````
 
 ## 注意事项 & 扩展点
 

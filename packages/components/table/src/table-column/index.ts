@@ -102,7 +102,7 @@ export default defineComponent({
         index: props.index,
         // <el-table-column key="xxx" />
         rawColumnKey: instance.vnode.key,
-        enableColumnDrag: props.enableColumnDrag !== false,
+        columnDragEnable: props.columnDragEnable !== false,
       }
 
       const basicProps = [
@@ -115,7 +115,7 @@ export default defineComponent({
         'formatter',
         'fixed',
         'resizable',
-        'enableColumnDrag',
+        'columnDragEnable',
       ]
       const sortProps = ['sortMethod', 'sortBy', 'sortOrders']
       const selectProps = ['selectable', 'reserveSelection']

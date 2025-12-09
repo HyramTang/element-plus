@@ -80,7 +80,7 @@ type TableColumnCtx<T extends DefaultRow = DefaultRow> = {
   filterOpened?: boolean
   renderFilterIcon?: (scope: any) => VNode
   renderExpand?: (scope: any) => VNode
-  enableColumnDrag?: boolean
+  columnDragEnable?: boolean
 }
 
 interface TableColumn<T extends DefaultRow> extends ComponentInternalInstance {
@@ -165,7 +165,7 @@ export default {
   /**
    * @description 是否允许该列参与拖拽排序
    */
-  enableColumnDrag: {
+  columnDragEnable: {
     type: Boolean,
     default: true,
   },

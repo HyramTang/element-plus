@@ -46,7 +46,7 @@ export const useColumnDrag = <T extends DefaultRow>(
   }
 
   const tableDragEnabled = computed(
-    () => options.table?.props?.enableColumnDrag !== false
+    () => options.table?.props?.columnDragEnable !== false
   )
 
   const destroySortable = () => {

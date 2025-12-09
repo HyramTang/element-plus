@@ -362,14 +362,36 @@ export const useColumnPersistence = <T extends DefaultRow>(
   const cachedWidths = shallowRef<Record<string, number>>({})
   const cachedVisibility = shallowRef<Record<string, boolean>>({})
 
-  const shouldPersistWidth = computed(() => props.saveColumnWidth !== false)
-  const shouldPersistOrder = computed(() => props.saveColumnOrder !== false)
+  const columnStoreConfig = computed(() => props.columnStore)
+
+  const shouldPersistWidth = computed(() => {
+    const store = columnStoreConfig.value
+    if (store === false) return false
+    if (store === true || store === undefined) return true
+    return Array.isArray(store) ? store.includes('width') : true
+  })
+
+  const shouldPersistOrder = computed(() => {
+    const store = columnStoreConfig.value
+    if (store === false) return false
+    if (store === true || store === undefined) return true
+    return Array.isArray(store) ? store.includes('order') : true
+  })
+
+  const shouldPersistVisibility = computed(() => {
+    const store = columnStoreConfig.value
+    if (store === false) return false
+    if (store === true || store === undefined) return true
+    return Array.isArray(store) ? store.includes('visible') : true
+  })
 
   const isPersistenceEnabled = computed(
     () =>
       !!props.id &&
       isClient &&
-      (shouldPersistWidth.value || shouldPersistOrder.value)
+      (shouldPersistWidth.value ||
+        shouldPersistOrder.value ||
+        shouldPersistVisibility.value)
   )
 
   const routePath = computed(() => normalizeRoutePath(resolveRoutePath(table)))
@@ -447,7 +469,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
     payload: ColumnPersistencePayload
   ) => {
     if (!table?.emit || !key) return
-    table.emit('column-persistence-save', key, clonePersistencePayload(payload))
+    table.emit('column-store-save', key, clonePersistencePayload(payload))
   }
 
   /**
@@ -476,7 +498,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
       resolved = payload
     }
     try {
-      table.emit('column-persistence-load', key, tableId, resolver)
+      table.emit('column-store-load', key, tableId, resolver)
       if (resolved === undefined) return null
       const normalized = await resolved
       if (normalized && typeof normalized === 'object') {
@@ -564,6 +586,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
    * @description 应用缓存的列显隐配置（仅标记，不直接改动渲染，可供外部读取使用）
    */
   const applyPersistedVisibility = () => {
+    if (!shouldPersistVisibility.value) return
     const payload = cachedPayload.value
     if (!payload?.colVisible) return
     cachedVisibility.value = { ...payload.colVisible }
@@ -648,6 +671,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
    */
   const persistColumnVisibility = (identifier: string, visible: boolean) => {
     if (!identifier) return
+    if (!shouldPersistVisibility.value) return
     if (!isPersistenceEnabled.value || !resolvedStorageKey.value) return
     const payload = ensurePayload()
     if (!payload) return
@@ -672,6 +696,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
    * @description 获取当前缓存的列显隐配置
    */
   const getPersistedColumnVisibility = () => {
+    if (!shouldPersistVisibility.value) return {}
     return { ...cachedVisibility.value }
   }
 

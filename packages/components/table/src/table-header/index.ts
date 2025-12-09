@@ -203,7 +203,7 @@ export default defineComponent({
       tableInstance,
     } = this
     const tableDragEnabledGlobal =
-      tableInstance?.props?.enableColumnDrag !== false
+      tableInstance?.props?.columnDragEnable !== false
     const zoneDraggableCount: Record<ColumnDragZone, number> = {
       left: 0,
       center: 0,
@@ -213,7 +213,7 @@ export default defineComponent({
       const leafColumns = store?.states?.columns?.value ?? []
       leafColumns.forEach((column) => {
         if (column.type !== 'default') return
-        if (column.enableColumnDrag === false) return
+        if (column.columnDragEnable === false) return
         const zone = resolveColumnZone(column)
         zoneDraggableCount[zone] += 1
       })
@@ -249,7 +249,7 @@ export default defineComponent({
             const columnDragEnabled =
               tableDragEnabled &&
               !isGroup &&
-              column.enableColumnDrag !== false &&
+              column.columnDragEnable !== false &&
               column.type === 'default' &&
               zoneDraggableCount[columnZone] > 1
             if (isTableLayoutAuto && column.fixed) {
