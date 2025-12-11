@@ -468,8 +468,18 @@ export const useColumnPersistence = <T extends DefaultRow>(
     key: string,
     payload: ColumnPersistencePayload
   ) => {
-    if (!table?.emit || !key) return
-    table.emit('column-store-save', key, clonePersistencePayload(payload))
+    if (!table?.emit || !key) return false
+    let handled = false
+    const preventDefault = () => {
+      handled = true
+    }
+    table.emit(
+      'store-save',
+      key,
+      clonePersistencePayload(payload),
+      preventDefault
+    )
+    return handled
   }
 
   /**
@@ -498,7 +508,7 @@ export const useColumnPersistence = <T extends DefaultRow>(
       resolved = payload
     }
     try {
-      table.emit('column-store-load', key, tableId, resolver)
+      table.emit('store-load', key, tableId, resolver)
       if (resolved === undefined) return null
       const normalized = await resolved
       if (normalized && typeof normalized === 'object') {
@@ -514,7 +524,8 @@ export const useColumnPersistence = <T extends DefaultRow>(
     if (!isPersistenceEnabled.value || !isClient || !resolvedStorageKey.value) {
       return
     }
-    emitPersistenceSave(resolvedStorageKey.value, payload)
+    const handled = emitPersistenceSave(resolvedStorageKey.value, payload)
+    if (handled) return
     persistPayloadToStorage(resolvedStorageKey.value, payload)
   }
 

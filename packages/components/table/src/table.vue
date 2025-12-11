@@ -236,9 +236,9 @@ export default defineComponent({
     'header-dragend',
     'expand-change',
     'scroll',
-    'header-dragend-order',
-    'column-store-save',
-    'column-store-load',
+    'column-dragend-order',
+    'store-save',
+    'store-load',
   ],
   setup(props) {
     type Row = (typeof props.data)[number]

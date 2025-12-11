@@ -63,9 +63,9 @@ flowchart LR
 | `column-store`                                        | 列状态持久化开关（true/false/数组）       | `useColumnPersistence`         |
 | `column-drag-enable`                                  | 是否渲染列拖拽句柄并启用排序（默认 true） | `column-drag.ts`               |
 | `header-dragend` (原生)                               | 列宽拖拽结束                              | `table-header/event-helper.ts` |
-| `header-dragend-order`                                | 列顺序拖拽结束（新增）                    | `table-header/column-drag.ts`  |
-| `column-store-load`                                   | 加载持久化数据（可覆盖默认 localStorage） | `table-header/utils-helper.ts` |
-| `column-store-save`                                   | 持久化数据写入前触发，便于自定义存储      | `table-header/utils-helper.ts` |
+| `column-dragend-order`                                | 列顺序拖拽结束（新增）                    | `table-header/column-drag.ts`  |
+| `store-load`                                          | 加载持久化数据（可覆盖默认 localStorage） | `table-header/utils-helper.ts` |
+| `store-save`                                          | 持久化数据写入前触发，便于自定义存储      | `table-header/utils-helper.ts` |
 | 其他事件（`select`、`sort-change`、`cell-click` ...） | 与文档一致                                | `table.vue emits`              |
 
 ## 列配置持久化（列宽 & 列顺序）
@@ -106,15 +106,18 @@ flowchart LR
    ```vue
    <el-table
      id="employeeList"
-     @column-store-load="(key, tableId, resolve) => resolve(api.fetch(tableId))"
-     @column-store-save="(key, payload) => api.save(payload.tableId, payload)"
+     @store-load="(key, tableId, resolve) => resolve(api.fetch(tableId))"
+     @store-save="(key, payload, preventDefault) => {
+       preventDefault() // 自定义存储后阻止内部写入 IndexedDB/localStorage
+       api.save(payload.tableId, payload)
+     }"
    />
    ```
 
 ````
 
-- `column-store-load(storageKey, tableId, resolve)`：调用 `resolve(payload | Promise)` 后，可覆盖默认的 localStorage 读取结果。
-- `column-store-save(storageKey, payload)`：在写入 localStorage 前触发，便于同步到 IndexedDB/接口等。
+- `store-load(storageKey, tableId, resolve)`：调用 `resolve(payload | Promise)` 后，可覆盖默认的 localStorage 读取结果。
+- `store-save(storageKey, payload, preventDefault)`：在写入前触发；如需完全自定义存储，可调用 `preventDefault()` 阻止内部写入 IndexedDB/localStorage。
 
 ## 列拖拽排序
 
@@ -126,7 +129,7 @@ flowchart LR
 - 每个 `<th>` 带有 `data-column-zone="left|center|right"`。
 - 拖动时通过 Sortable 的 `onMove`/`draggable` 保证只能在同一 zone 内排序。
 - 事件：
-- `header-dragend-order(orderKeys, zone, event)` 告知用户新顺序以及所在区域。
+- `column-dragend-order(orderKeys, zone, event)` 告知用户新顺序以及所在区域。
 - 内部自动调用 `persistColumnOrder`，若关闭持久化则只会更新一次 DOM。
 
 ## Mermaid：列拖拽 & 持久化流程
@@ -144,7 +147,7 @@ Header->>Drag: Sortable onEnd
 Drag->>Persist: persistColumnOrder(orderKeys, zone)
 Persist->>Storage: 写入 colOrderByZone
 Persist-->>Header: scheduleLayout(false, true)
-Drag-->>User: emit('header-dragend-order', orderKeys, zone, event)
+Drag-->>User: emit('column-dragend-order', orderKeys, zone, event)
 ````
 
 ## 注意事项 & 扩展点

@@ -99,7 +99,7 @@ export const useColumnDrag = <T extends DefaultRow>(
           ? options.table.persistColumnOrder(orderKeys, zone)
           : reorderColumnsByKeys(options.store, orderKeys, zone)
         if (reordered) {
-          options.table?.emit?.('header-dragend-order', orderKeys, zone, event)
+          options.table?.emit?.('column-dragend-order', orderKeys, zone, event)
         }
       },
     })
