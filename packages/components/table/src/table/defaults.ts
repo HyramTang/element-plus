@@ -168,6 +168,7 @@ interface TableProps<T extends DefaultRow> {
   scrollbarTabindex?: number | string
   nativeScrollbar?: boolean
   columnStore?: boolean | Array<'order' | 'width' | 'visible'>
+  storeVersion?: number
   columnDragEnable?: boolean
 }
 
@@ -458,6 +459,13 @@ export default {
       }
       return false
     },
+  },
+  /**
+   * @description 持久化数据的版本号，变更后会使旧缓存失效
+   */
+  storeVersion: {
+    type: Number,
+    default: 1,
   },
   /**
    * @description 是否全局启用列拖拽

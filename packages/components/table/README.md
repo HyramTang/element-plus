@@ -61,6 +61,7 @@ flowchart LR
 | `border`/`stripe`/`size` 等                           | 外观控制                                  | 直接影响模板 & class           |
 | `row-key`                                             | 用于行复用/选择缓存                       | `store`                        |
 | `column-store`                                        | 列状态持久化开关（true/false/数组）       | `useColumnPersistence`         |
+| `store-version`                                       | 持久化数据版本号，变更后旧缓存失效        | `useColumnPersistence`         |
 | `column-drag-enable`                                  | 是否渲染列拖拽句柄并启用排序（默认 true） | `column-drag.ts`               |
 | `header-dragend` (原生)                               | 列宽拖拽结束                              | `table-header/event-helper.ts` |
 | `column-dragend-order`                                | 列顺序拖拽结束（新增）                    | `table-header/column-drag.ts`  |
@@ -85,7 +86,7 @@ flowchart LR
        "center": ["email", "city", "address"],
        "right": ["actions"]
      },
-     "meta": { "creator": "el-table" }
+     "meta": { "creator": "el-table", "storeVersion": 1 }
    }
    ```
 
@@ -99,6 +100,7 @@ flowchart LR
    - 列排序拖拽 -> `column-drag.ts` -> `table.persistColumnOrder(orderKeys, zone)` -> 更新对应区域的 `colOrderByZone` 并写入 storage。
 
 - `columnStore` = `false` 可一次性关闭所有列状态持久化；传入 `['width']` 等数组可精确打开。
+- `storeVersion` 用于主动失效旧缓存：当表格列结构/默认值调整时递增该值，旧存储会被丢弃并恢复为当前默认。
 
 3. **对接自定义存储**  
    通过事件可以完全接管数据的读写：
@@ -107,10 +109,12 @@ flowchart LR
    <el-table
      id="employeeList"
      @store-load="(key, tableId, resolve) => resolve(api.fetch(tableId))"
-     @store-save="(key, payload, preventDefault) => {
-       preventDefault() // 自定义存储后阻止内部写入 IndexedDB/localStorage
-       api.save(payload.tableId, payload)
-     }"
+     @store-save="
+       (key, payload, preventDefault) => {
+         preventDefault() // 自定义存储后阻止内部写入 IndexedDB/localStorage
+         api.save(payload.tableId, payload)
+       }
+     "
    />
    ```
 

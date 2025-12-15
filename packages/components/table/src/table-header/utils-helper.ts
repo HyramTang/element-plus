@@ -118,6 +118,11 @@ const DB_NAME = 'bsui'
 const DB_VERSION = 1
 const DB_STORE_NAME = 'el-table'
 
+type ColumnPersistenceMeta = {
+  creator?: string
+  storeVersion?: number
+} & Record<string, unknown>
+
 interface ColumnPersistencePayload {
   v: number
   updatedAt: number
@@ -126,21 +131,8 @@ interface ColumnPersistencePayload {
   colOrder?: string[]
   colOrderByZone?: Partial<Record<ColumnDragZone, string[]>>
   colVisible?: Record<string, boolean>
-  meta?: Record<string, unknown>
+  meta?: ColumnPersistenceMeta
 }
-
-/**
- * @description 构造一份空的列配置持久化数据
- */
-const createEmptyPayload = (tableId: string): ColumnPersistencePayload => ({
-  v: STORAGE_VERSION,
-  updatedAt: Date.now(),
-  tableId,
-  colWidth: {},
-  meta: {
-    creator: 'el-table',
-  },
-})
 
 /**
  * @description 过滤无效宽度值，返回列宽映射
@@ -179,55 +171,17 @@ const normalizeVisibilityMap = (value: Record<string, any> | undefined) => {
 /**
  * @description 复制出 meta 信息，确保类型稳定
  */
-const normalizeMetaInfo = (value: unknown) => {
+const normalizeMetaInfo = (
+  value: unknown
+): ColumnPersistenceMeta | undefined => {
   if (!value || typeof value !== 'object') return undefined
-  return { ...(value as Record<string, unknown>) }
-}
-
-/**
- * @description 将任意对象转换为规范的列配置 payload
- */
-const normalizePayload = (
-  value: Record<string, any>,
-  fallbackId: string
-): ColumnPersistencePayload => {
-  const colWidth = normalizeWidthMap(value.colWidth)
-  const colOrder = Array.isArray(value.colOrder)
-    ? value.colOrder.filter((item): item is string => typeof item === 'string')
-    : undefined
-  const colOrderByZone =
-    value.colOrderByZone && typeof value.colOrderByZone === 'object'
-      ? (['left', 'center', 'right'] as ColumnDragZone[]).reduce<
-          Partial<Record<ColumnDragZone, string[]>>
-        >((acc, zone) => {
-          const list = value.colOrderByZone[zone]
-          if (Array.isArray(list)) {
-            const filtered = list.filter(
-              (item: unknown): item is string => typeof item === 'string'
-            )
-            if (filtered.length) {
-              acc[zone] = filtered
-            }
-          }
-          return acc
-        }, {})
-      : undefined
-  const colVisible = normalizeVisibilityMap(value.colVisible)
-  const meta = normalizeMetaInfo(value.meta)
-  return {
-    v: typeof value.v === 'number' ? value.v : STORAGE_VERSION,
-    updatedAt:
-      typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
-    tableId:
-      typeof value.tableId === 'string' && value.tableId
-        ? value.tableId
-        : fallbackId,
-    colWidth,
-    colOrder,
-    colOrderByZone,
-    colVisible,
-    meta,
+  const meta = { ...(value as Record<string, unknown>) }
+  if (typeof meta.storeVersion === 'number') {
+    meta.storeVersion = Number(meta.storeVersion)
+  } else {
+    delete meta.storeVersion
   }
+  return meta
 }
 
 const clonePersistencePayload = (
@@ -363,6 +317,91 @@ export const useColumnPersistence = <T extends DefaultRow>(
   const cachedVisibility = shallowRef<Record<string, boolean>>({})
 
   const columnStoreConfig = computed(() => props.columnStore)
+  // 显式的持久化版本号，业务调整列结构时可递增以失效旧缓存
+  const currentStoreVersion = computed(() => {
+    const version = Number(props.storeVersion ?? 1)
+    return Number.isFinite(version) && version > 0 ? version : 1
+  })
+
+  /**
+   * @description 构造一份空的列配置持久化数据
+   */
+  const createEmptyPayload = (tableId: string): ColumnPersistencePayload => ({
+    v: STORAGE_VERSION,
+    updatedAt: Date.now(),
+    tableId,
+    colWidth: {},
+    meta: {
+      creator: 'el-table',
+      storeVersion: currentStoreVersion.value,
+    },
+  })
+
+  /**
+   * @description 将任意对象转换为规范的列配置 payload
+   */
+  const normalizePayload = (
+    value: Record<string, any>,
+    fallbackId: string
+  ): ColumnPersistencePayload => {
+    const colWidth = normalizeWidthMap(value.colWidth)
+    const colOrder = Array.isArray(value.colOrder)
+      ? value.colOrder.filter(
+          (item): item is string => typeof item === 'string'
+        )
+      : undefined
+    const colOrderByZone =
+      value.colOrderByZone && typeof value.colOrderByZone === 'object'
+        ? (['left', 'center', 'right'] as ColumnDragZone[]).reduce<
+            Partial<Record<ColumnDragZone, string[]>>
+          >((acc, zone) => {
+            const list = value.colOrderByZone[zone]
+            if (Array.isArray(list)) {
+              const filtered = list.filter(
+                (item: unknown): item is string => typeof item === 'string'
+              )
+              if (filtered.length) {
+                acc[zone] = filtered
+              }
+            }
+            return acc
+          }, {})
+        : undefined
+    const colVisible = normalizeVisibilityMap(value.colVisible)
+    const meta = normalizeMetaInfo(value.meta)
+    return {
+      v: typeof value.v === 'number' ? value.v : STORAGE_VERSION,
+      updatedAt:
+        typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
+      tableId:
+        typeof value.tableId === 'string' && value.tableId
+          ? value.tableId
+          : fallbackId,
+      colWidth,
+      colOrder,
+      colOrderByZone,
+      colVisible,
+      meta: {
+        ...(meta || {}),
+        storeVersion:
+          typeof meta?.storeVersion === 'number'
+            ? meta.storeVersion
+            : currentStoreVersion.value,
+      },
+    }
+  }
+
+  /**
+   * @description 为 payload 补充 meta 信息，写入当前的 storeVersion
+   */
+  const attachMeta = (payload: ColumnPersistencePayload) => {
+    payload.meta = {
+      creator: 'el-table',
+      ...(payload.meta || {}),
+      storeVersion: currentStoreVersion.value,
+    }
+    return payload.meta
+  }
 
   const shouldPersistWidth = computed(() => {
     const store = columnStoreConfig.value
@@ -520,10 +559,17 @@ export const useColumnPersistence = <T extends DefaultRow>(
     return null
   }
 
+  /**
+   * @description 将 payload 补齐必要信息并写入存储
+   */
   const syncPayloadToStorage = (payload: ColumnPersistencePayload) => {
     if (!isPersistenceEnabled.value || !isClient || !resolvedStorageKey.value) {
       return
     }
+    payload.updatedAt = Date.now()
+    payload.v = STORAGE_VERSION
+    payload.tableId = props.id as string
+    attachMeta(payload)
     const handled = emitPersistenceSave(resolvedStorageKey.value, payload)
     if (handled) return
     persistPayloadToStorage(resolvedStorageKey.value, payload)
@@ -629,12 +675,6 @@ export const useColumnPersistence = <T extends DefaultRow>(
       ...payload.colWidth,
       [identifier]: numericWidth,
     }
-    payload.updatedAt = Date.now()
-    payload.v = STORAGE_VERSION
-    payload.tableId = props.id as string
-    if (!payload.meta) {
-      payload.meta = { creator: 'el-table' }
-    }
     cachedPayload.value = payload
     cachedWidths.value = { ...payload.colWidth }
     syncPayloadToStorage(payload)
@@ -666,12 +706,6 @@ export const useColumnPersistence = <T extends DefaultRow>(
     if (zone === 'center' && !payload.colOrder?.length) {
       payload.colOrder = [...orderedKeys]
     }
-    payload.updatedAt = Date.now()
-    payload.v = STORAGE_VERSION
-    payload.tableId = props.id as string
-    if (!payload.meta) {
-      payload.meta = { creator: 'el-table' }
-    }
     cachedPayload.value = payload
     syncPayloadToStorage(payload)
     return true
@@ -691,12 +725,6 @@ export const useColumnPersistence = <T extends DefaultRow>(
     payload.colVisible = {
       ...current,
       [identifier]: visible,
-    }
-    payload.updatedAt = Date.now()
-    payload.v = STORAGE_VERSION
-    payload.tableId = props.id as string
-    if (!payload.meta) {
-      payload.meta = { creator: 'el-table' }
     }
     cachedPayload.value = payload
     cachedVisibility.value = { ...payload.colVisible }
@@ -764,10 +792,30 @@ export const useColumnPersistence = <T extends DefaultRow>(
         cachedVisibility.value = {}
         return
       }
-      const payload =
+      let payload =
         (await resolvePersistedPayload(key, props.id as string)) ||
         createEmptyPayload(props.id as string)
       if (taskId !== loadTaskId) return
+      const payloadVersion =
+        payload.meta?.storeVersion ?? currentStoreVersion.value
+      if (payloadVersion !== currentStoreVersion.value) {
+        // 版本不一致视为结构变动，抛弃旧缓存
+        // 清理旧存储，确保调试和状态一致
+        try {
+          const db = await getDb()
+          if (db) {
+            await db.delete(DB_STORE_NAME, key)
+          }
+        } catch {
+          // 忽略删除失败
+        }
+        try {
+          window.localStorage.removeItem(key)
+        } catch {
+          // 忽略删除失败
+        }
+        payload = createEmptyPayload(props.id as string)
+      }
       cachedPayload.value = payload
       cachedWidths.value = { ...payload.colWidth }
       cachedVisibility.value = { ...(payload.colVisible || {}) }
